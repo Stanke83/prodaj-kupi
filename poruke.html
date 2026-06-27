@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Poruke — ProdajKupi</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1a8f4b"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    .messages-page{display:grid;grid-template-columns:320px 1fr;height:calc(100vh - 56px);background:var(--gray-50)}
+    .conv-list{background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;display:flex;flex-direction:column}
+    .conv-list__head{padding:16px 20px;border-bottom:1px solid var(--gray-100);font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between}
+    .conv-item{padding:14px 18px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background .15s;display:flex;gap:12px;align-items:flex-start}
+    .conv-item:hover{background:var(--gray-50)}
+    .conv-item.active{background:var(--green-light)}
+    .conv-item__avatar{width:40px;height:40px;background:var(--green);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0}
+    .conv-item__body{flex:1;min-width:0}
+    .conv-item__name{font-size:.9rem;font-weight:600;margin-bottom:2px}
+    .conv-item__ad{font-size:.75rem;color:var(--green);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .conv-item__preview{font-size:.8rem;color:var(--gray-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .conv-item__time{font-size:.72rem;color:var(--gray-400);flex-shrink:0}
+    .conv-item__unread{background:#ef4444;color:#fff;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:10px;margin-left:auto}
+    .chat-area{display:flex;flex-direction:column;background:#f9fafb}
+    .chat-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--gray-400);gap:12px}
+    .chat-empty .icon{font-size:3rem}
+    .chat-head{background:#fff;border-bottom:1px solid var(--gray-200);padding:14px 20px;display:flex;align-items:center;gap:12px}
+    .chat-head__avatar{width:38px;height:38px;background:var(--green);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+    .chat-head__info strong{display:block;font-size:.92rem}
+    .chat-head__info span{font-size:.78rem;color:var(--green)}
+    .chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:10px}
+    .msg{display:flex;flex-direction:column;max-width:70%}
+    .msg--out{align-self:flex-end;align-items:flex-end}
+    .msg--in{align-self:flex-start;align-items:flex-start}
+    .msg__bubble{padding:10px 14px;border-radius:14px;font-size:.9rem;line-height:1.5;word-break:break-word}
+    .msg--out .msg__bubble{background:var(--green);color:#fff;border-bottom-right-radius:4px}
+    .msg--in .msg__bubble{background:#fff;color:var(--gray-800);border:1px solid var(--gray-200);border-bottom-left-radius:4px}
+    .msg__time{font-size:.7rem;color:var(--gray-400);margin-top:3px;padding:0 4px}
+    .chat-input{background:#fff;border-top:1px solid var(--gray-200);padding:14px 20px;display:flex;gap:10px;align-items:flex-end}
+    .chat-input textarea{flex:1;padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:.93rem;font-family:var(--font);resize:none;outline:none;max-height:120px;line-height:1.5}
+    .chat-input textarea:focus{border-color:var(--green)}
+    .chat-input button{height:42px;width:42px;border-radius:10px;background:var(--green);color:#fff;border:none;cursor:pointer;font-size:1.2rem;flex-shrink:0;transition:background .15s}
+    .chat-input button:hover{background:var(--green-dark)}
+    .no-convs{padding:40px 20px;text-align:center;color:var(--gray-400)}
+    @media(max-width:768px){.messages-page{grid-template-columns:1fr}.conv-list{display:none}.conv-list.mobile-show{display:flex;position:fixed;inset:56px 0 0;z-index:10}}
+  </style>
+</head>
+<body>
+<header class="header">
+  <div class="header__top">
+    <div class="header__top-inner">
+      <a href="index.html" class="logo"><span class="logo__prodaj">Prodaj</span><span class="logo__kupi">Kupi</span></a>
+      <div class="header__actions" id="headerActions"></div>
+    </div>
+  </div>
+</header>
+
+<div class="messages-page" id="messagesPage">
+  <!-- CONV LIST -->
+  <div class="conv-list" id="convList">
+    <div class="conv-list__head">
+      💬 Poruke
+      <span id="unreadBadge"></span>
+    </div>
+    <div id="convItems"><div style="padding:20px;text-align:center;color:var(--gray-400)">⏳ Učitavanje...</div></div>
+  </div>
+
+  <!-- CHAT AREA -->
+  <div class="chat-area" id="chatArea">
+    <div class="chat-empty">
+      <div class="icon">💬</div>
+      <p>Izaberi razgovor ili kontaktiraj prodavca iz oglasa.</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/header.js"></script>
+<script src="js/email.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/google-auth.js"></script>
+<script>
+var currentUser = null;
+var currentConv = null; // {otherEmail, otherName, adId, adTitle}
+var allMessages  = [];
+var pollTimer    = null;
+
+function init() {
+  renderHeader();
+  currentUser = SESSION.get();
+  if (!currentUser) { window.location.href = 'index.html?next=poruke.html'; return; }
+  renderNotifBell(currentUser.email);
+  loadConversations();
+
+  // Auto-otvori razgovor ako je adId u URL
+  var params = new URLSearchParams(window.location.search);
+  var adId    = params.get('adId');
+  var adTitle = params.get('adTitle');
+  var toEmail = params.get('to');
+  var toName  = params.get('toName');
+  if (adId && toEmail) {
+    setTimeout(function() { openConv(toEmail, toName||toEmail, adId, adTitle||'Oglas'); }, 600);
+  }
+}
+
+function loadConversations() {
+  // Dohvati sve poruke koje su mi poslate ili koje sam poslao
+  Promise.all([
+    sbFetch('messages?to_email=eq.' + encodeURIComponent(currentUser.email) + '&order=created_at.desc&limit=200'),
+    sbFetch('messages?from_email=eq.' + encodeURIComponent(currentUser.email) + '&order=created_at.desc&limit=200')
+  ]).then(function(results) {
+    var received = results[0] || [];
+    var sent     = results[1] || [];
+    var all      = received.concat(sent);
+
+    // Grupiši po (otherEmail + adId)
+    var convMap = {};
+    all.forEach(function(m) {
+      var otherEmail = m.from_email === currentUser.email ? m.to_email : m.from_email;
+      var otherName  = m.from_email === currentUser.email ? (m.to_name||m.to_email) : m.from_name;
+      var key = otherEmail + '|' + m.ad_id;
+      if (!convMap[key] || new Date(m.created_at) > new Date(convMap[key].last.created_at)) {
+        convMap[key] = { otherEmail:otherEmail, otherName:otherName, adId:m.ad_id, adTitle:m.ad_title, last:m,
+          unread: received.filter(function(r){ return r.from_email===otherEmail && r.ad_id===m.ad_id && !r.read; }).length
+        };
+      }
+    });
+
+    var convs = Object.values(convMap).sort(function(a,b){ return new Date(b.last.created_at)-new Date(a.last.created_at); });
+    renderConvList(convs);
+  }).catch(function(e){ showToast('Greška: '+e.message,'error'); });
+}
+
+function renderConvList(convs) {
+  var el = document.getElementById('convItems');
+  if (!convs.length) {
+    el.innerHTML = '<div class="no-convs"><div style="font-size:2rem;margin-bottom:8px">💬</div><p>Nema poruka.</p><p style="font-size:.82rem">Pošalji poruku prodavcu iz nekog oglasa.</p></div>';
+    return;
+  }
+  el.innerHTML = convs.map(function(c) {
+    var initial = (c.otherName||'?').charAt(0).toUpperCase();
+    var isActive = currentConv && currentConv.otherEmail===c.otherEmail && currentConv.adId===c.adId;
+    return '<div class="conv-item'+(isActive?' active':'')+'" onclick="openConv(\''+escHtml(c.otherEmail)+'\',\''+escHtml(c.otherName)+'\',\''+escHtml(c.adId)+'\',\''+escHtml(c.adTitle)+'\')">' +
+      '<div class="conv-item__avatar">'+initial+'</div>' +
+      '<div class="conv-item__body">' +
+        '<div class="conv-item__name">'+escHtml(c.otherName)+'</div>' +
+        '<div class="conv-item__ad">🔗 '+escHtml(c.adTitle)+'</div>' +
+        '<div class="conv-item__preview">'+escHtml(c.last.content.slice(0,50))+'</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">' +
+        '<span class="conv-item__time">'+timeAgo(c.last.created_at)+'</span>' +
+        (c.unread>0?'<span class="conv-item__unread">'+c.unread+'</span>':'') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openConv(otherEmail, otherName, adId, adTitle) {
+  currentConv = { otherEmail:otherEmail, otherName:otherName, adId:adId, adTitle:adTitle };
+  clearInterval(pollTimer);
+  loadMessages();
+  pollTimer = setInterval(loadMessages, 5000);
+  loadConversations();
+}
+
+function loadMessages() {
+  if (!currentConv) return;
+  var me    = currentUser.email;
+  var other = currentConv.otherEmail;
+  var adId  = currentConv.adId;
+
+  // Dohvati poruke između nas dvoje za ovaj oglas
+  sbFetch('messages?ad_id=eq.'+encodeURIComponent(adId)+
+    '&or=(and(from_email.eq.'+encodeURIComponent(me)+',to_email.eq.'+encodeURIComponent(other)+'),and(from_email.eq.'+encodeURIComponent(other)+',to_email.eq.'+encodeURIComponent(me)+'))'+
+    '&order=created_at.asc&limit=200'
+  ).then(function(msgs) {
+    msgs = msgs || [];
+    var chatArea = document.getElementById('chatArea');
+    var initial  = (currentConv.otherName||'?').charAt(0).toUpperCase();
+    chatArea.innerHTML =
+      '<div class="chat-head">' +
+        '<div class="chat-head__avatar">'+initial+'</div>' +
+        '<div class="chat-head__info"><strong>'+escHtml(currentConv.otherName)+'</strong><span>🔗 '+escHtml(currentConv.adTitle)+'</span></div>' +
+      '</div>' +
+      '<div class="chat-messages" id="chatMsgs">' +
+        (msgs.length ? msgs.map(function(m) {
+          var isOut = m.from_email === me;
+          return '<div class="msg msg--'+(isOut?'out':'in')+'">' +
+            '<div class="msg__bubble">'+escHtml(m.content)+'</div>' +
+            '<div class="msg__time">'+timeAgo(m.created_at)+'</div>' +
+          '</div>';
+        }).join('') : '<div style="text-align:center;color:var(--gray-400);margin:20px 0">Početak razgovora. Pošalji prvu poruku!</div>') +
+      '</div>' +
+      '<div class="chat-input">' +
+        '<textarea id="msgInput" placeholder="Napiši poruku..." rows="1" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendMsg()}" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\'"></textarea>' +
+        '<button onclick="sendMsg()" title="Pošalji">➤</button>' +
+      '</div>';
+
+    // Skroluj na dno
+    var msgs2 = document.getElementById('chatMsgs');
+    if (msgs2) msgs2.scrollTop = msgs2.scrollHeight;
+
+    // Označi kao pročitane
+    msgs.filter(function(m){ return m.to_email===me && !m.read; }).forEach(function(m) {
+      sbFetch('messages?id=eq.'+m.id, { method:'PATCH', body:{read:true} });
+    });
+  });
+}
+
+function sendMsg() {
+  var input = document.getElementById('msgInput');
+  if (!input) return;
+  var content = input.value.trim();
+  if (!content) return;
+  input.value = '';
+  input.style.height = 'auto';
+
+  var msg = {
+    from_email: currentUser.email,
+    from_name:  currentUser.name,
+    to_email:   currentConv.otherEmail,
+    to_name:    currentConv.otherName,
+    ad_id:      currentConv.adId,
+    ad_title:   currentConv.adTitle,
+    content:    content
+  };
+
+  sbFetch('messages', { method:'POST', prefer:'return=representation', body:msg }).then(function() {
+    loadMessages();
+    loadConversations();
+    // Email notifikacija primaocu
+    sendEmail(currentConv.otherEmail,
+      '💬 Nova poruka od ' + currentUser.name + ' — ' + currentConv.adTitle,
+      EmailTemplates.newMessage(currentConv.otherName, currentUser.name, currentConv.adTitle, content).html
+    );
+    // In-app notifikacija
+    Notifs.add(currentConv.otherEmail, 'new_message',
+      'Nova poruka od ' + currentUser.name,
+      content.slice(0,80),
+      'poruke.html?adId='+encodeURIComponent(currentConv.adId)+'&to='+encodeURIComponent(currentUser.email)+'&toName='+encodeURIComponent(currentUser.name)+'&adTitle='+encodeURIComponent(currentConv.adTitle)
+    );
+  }).catch(function(e){ showToast('Greška: '+e.message,'error'); });
+}
+
+// Dodaj sbFetch globalno jer ga koristimo direktno
+window.sbFetch = sbFetch;
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

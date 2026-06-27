@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Postavi oglas — ProdajKupi</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1a8f4b"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    .post-page{padding:36px 0 80px;background:var(--gray-50);min-height:calc(100vh - 56px)}
+    .post-page__head{margin-bottom:28px}
+    .post-page__head h1{font-size:1.9rem;font-weight:800;margin-bottom:5px}
+    .post-page__head p{color:var(--gray-500)}
+    .post-layout{display:grid;grid-template-columns:1fr 290px;gap:22px;align-items:start}
+    .form-card{background:#fff;border:1px solid var(--gray-200);border-radius:14px;margin-bottom:14px;overflow:hidden}
+    .form-card__head{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)}
+    .form-card__num{width:28px;height:28px;background:var(--green);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:700;flex-shrink:0}
+    .form-card__head h2{font-size:1rem;font-weight:700;flex:1}
+    .form-card__hint{font-size:.76rem;color:var(--gray-400)}
+    .form-card__body{padding:22px}
+    .photo-upload-area{border:2px dashed var(--gray-200);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--gray-50);display:flex;align-items:center;justify-content:center;gap:18px}
+    .photo-upload-area:hover,.photo-upload-area.drag{border-color:var(--green);background:var(--green-light)}
+    .photo-upload-area__icon{font-size:2.2rem}
+    .photo-upload-area__text strong{display:block;font-size:.95rem;font-weight:700;margin-bottom:3px}
+    .photo-upload-area__text span{display:block;font-size:.83rem;color:var(--gray-500)}
+    .photo-preview-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:14px}
+    .photo-thumb{position:relative;aspect-ratio:1;border-radius:9px;overflow:hidden;background:var(--gray-100);display:flex;align-items:center;justify-content:center}
+    .photo-thumb img{width:100%;height:100%;object-fit:cover}
+    .photo-thumb__label{position:absolute;bottom:0;left:0;right:0;background:rgba(26,143,75,.85);color:#fff;font-size:.65rem;font-weight:700;text-align:center;padding:3px}
+    .photo-thumb__remove{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+    .photo-thumb__remove:hover{background:#dc2626}
+    .photo-thumb__uploading{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#fff;font-size:.72rem;font-weight:600}
+    .photo-thumb__bar{width:70%;height:4px;background:rgba(255,255,255,.3);border-radius:4px;overflow:hidden}
+    .photo-thumb__bar-fill{height:100%;background:#fff;border-radius:4px;transition:width .2s}
+    .upload-status{margin-top:10px;font-size:.82rem;font-weight:600;text-align:center;min-height:20px}
+    .price-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    .price-row .input-with-unit{flex:1;min-width:160px}
+    .post-tips{position:sticky;top:80px;display:flex;flex-direction:column;gap:14px}
+    .tips-card{background:#fff;border:1px solid var(--gray-200);border-radius:14px;padding:20px}
+    .tips-card h3{font-size:.9rem;font-weight:700;margin-bottom:12px}
+    .tips-card ul{padding-left:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+    .tips-card ul li{font-size:.82rem;color:var(--gray-500);line-height:1.5;padding-left:14px;position:relative}
+    .tips-card ul li::before{content:'•';position:absolute;left:0;color:var(--green);font-weight:700}
+    .tips-card--green{background:var(--green-light);border-color:#bbf7d0}
+    .tips-card--green p{font-size:.83rem;color:var(--gray-600);line-height:1.6}
+    .post-submit{background:#fff;border:1px solid var(--gray-200);border-radius:14px;padding:24px}
+    .post-submit__note{text-align:center;font-size:.79rem;color:var(--gray-400);margin-top:10px}
+    .post-error-box{background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;color:#dc2626;font-size:.88rem;font-weight:500;margin-bottom:14px;display:none}
+    .success-screen{position:fixed;inset:0;background:rgba(255,255,255,.98);z-index:9999;display:none;align-items:center;justify-content:center}
+    .success-screen__inner{text-align:center;max-width:420px;padding:40px 20px}
+    @media(max-width:1024px){.post-layout{grid-template-columns:1fr}.post-tips{position:static}}
+    @media(max-width:768px){.form-row{grid-template-columns:1fr}.photo-preview-grid{grid-template-columns:repeat(3,1fr)}}
+  </style>
+</head>
+<body>
+<header class="header">
+  <div class="header__top">
+    <div class="header__top-inner">
+      <a href="index.html" class="logo"><span class="logo__prodaj">Prodaj</span><span class="logo__kupi">Kupi</span></a>
+      <div class="header__actions" id="headerActions"></div>
+    </div>
+  </div>
+</header>
+
+<main class="post-page">
+  <div class="container">
+    <div class="post-page__head">
+      <h1>Postavi oglas</h1>
+      <p>Besplatno — oglas odmah postaje vidljiv svima sa svih uređaja.</p>
+    </div>
+    <div class="post-layout">
+      <div>
+        <!-- 1. KATEGORIJA -->
+        <div class="form-card">
+          <div class="form-card__head"><div class="form-card__num">1</div><h2>Kategorija</h2></div>
+          <div class="form-card__body">
+            <div class="form-group"><label>Kategorija <span class="req">*</span></label>
+              <select id="adCategory" onchange="onCatChange()">
+                <option value="">— Izaberi kategoriju —</option>
+                <option>Elektronika</option><option>Mobilni telefoni</option><option>Kompjuteri</option>
+                <option>Automobili</option><option>Motocikli</option><option>Bicikli</option>
+                <option>Nekretnine</option><option>Nekretnine izdavanje</option>
+                <option>Odeća i obuća</option><option>Nameštaj</option><option>Kućni aparati</option>
+                <option>Sport</option><option>Knjige</option><option>Muzički instrumenti</option>
+                <option>Igračke</option><option>Kućni ljubimci</option><option>Alati</option>
+                <option>Poljoprivreda</option><option>Usluge</option><option>Ostalo</option>
+              </select>
+            </div>
+            <div class="form-group" id="subCatWrap" style="display:none">
+              <label>Potkategorija</label>
+              <select id="adSubcategory"><option value="">— Izaberi potkategoriju —</option></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. FOTOGRAFIJE -->
+        <div class="form-card">
+          <div class="form-card__head"><div class="form-card__num">2</div><h2>Fotografije</h2><span class="form-card__hint">Do 20 • Prva je naslovna • ☁️ Cloudinary</span></div>
+          <div class="form-card__body">
+            <div class="photo-upload-area" id="photoArea" onclick="document.getElementById('photoFileInput').click()">
+              <div class="photo-upload-area__icon">📷</div>
+              <div class="photo-upload-area__text">
+                <strong>Dodaj fotografije</strong>
+                <span>Klikni ili prevuci slike ovde</span>
+              </div>
+            </div>
+            <input type="file" id="photoFileInput" accept="image/*" multiple style="display:none"/>
+            <div class="photo-preview-grid" id="photoGrid"></div>
+            <div class="upload-status" id="uploadStatus"></div>
+          </div>
+        </div>
+
+        <!-- 3. INFORMACIJE -->
+        <div class="form-card">
+          <div class="form-card__head"><div class="form-card__num">3</div><h2>Osnovne informacije</h2></div>
+          <div class="form-card__body">
+            <div class="form-group">
+              <label>Naslov oglasa <span class="req">*</span></label>
+              <input type="text" id="adTitle" maxlength="80" placeholder="Npr. iPhone 14 Pro 256GB Space Black"/>
+              <div class="input-hint"><span id="titleLen">0</span>/80 karaktera</div>
+            </div>
+            <div class="form-group">
+              <label>Stanje predmeta <span class="req">*</span></label>
+              <div class="radio-group">
+                <label class="radio-option"><input type="radio" name="adCondition" value="Novo"/><span class="radio-box"><span class="radio-dot"></span><span><strong>Novo</strong><small>Nekorišćeno, u originalnoj ambalaži</small></span></span></label>
+                <label class="radio-option"><input type="radio" name="adCondition" value="Kao novo"/><span class="radio-box"><span class="radio-dot"></span><span><strong>Kao novo</strong><small>Korišćeno, bez vidljivih tragova</small></span></span></label>
+                <label class="radio-option"><input type="radio" name="adCondition" value="Polovno" checked/><span class="radio-box"><span class="radio-dot"></span><span><strong>Polovno</strong><small>Korišćeno, u ispravnom stanju</small></span></span></label>
+                <label class="radio-option"><input type="radio" name="adCondition" value="Oštećeno"/><span class="radio-box"><span class="radio-dot"></span><span><strong>Oštećeno</strong><small>Vidljiva oštećenja</small></span></span></label>
+              </div>
+            </div>
+            <div class="form-group" id="mileageWrap" style="display:none">
+              <label>Kilometraža</label>
+              <div class="input-with-unit"><input type="number" id="adMileage" placeholder="Npr. 125000" min="0"/><span class="input-unit">km</span></div>
+            </div>
+            <div class="form-group" id="yearWrap" style="display:none">
+              <label>Godište</label>
+              <select id="adYear"><option value="">— Izaberi —</option></select>
+            </div>
+            <div class="form-group" id="sizeWrap" style="display:none">
+              <label>Veličina</label>
+              <select id="adSize">
+                <option value="">—</option>
+                <option>XXS</option><option>XS</option><option>S</option><option>M</option>
+                <option>L</option><option>XL</option><option>XXL</option><option>3XL</option><option>Ostalo</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Opis oglasa <span class="req">*</span></label>
+              <textarea id="adDesc" rows="8" maxlength="4000" placeholder="Opiši detaljno — stanje, karakteristike, razlog prodaje, šta je uključeno..."></textarea>
+              <div class="input-hint"><span id="descLen">0</span>/4000 karaktera</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. CENA -->
+        <div class="form-card">
+          <div class="form-card__head"><div class="form-card__num">4</div><h2>Cena</h2></div>
+          <div class="form-card__body">
+            <div class="form-group">
+              <label>Cena <span class="req">*</span></label>
+              <div class="price-row">
+                <div class="input-with-unit">
+                  <input type="number" id="adPrice" placeholder="0" min="0"/>
+                  <span class="input-unit">RSD</span>
+                </div>
+                <label class="checkbox-option"><input type="checkbox" id="adFixed"/><span>Fiksna cena</span></label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-option" style="padding:12px 14px;border:1.5px solid var(--gray-200);border-radius:9px;display:flex">
+                <input type="checkbox" id="adFree" style="width:17px;height:17px;accent-color:var(--green);cursor:pointer;flex-shrink:0"/>
+                <span style="margin-left:9px"><strong>Poklanjam besplatno</strong> — cena je 0 RSD</span>
+              </label>
+            </div>
+            <div class="form-group">
+              <label>Mogućnost zamene</label>
+              <div class="radio-group radio-group--inline">
+                <label class="radio-option"><input type="radio" name="adSwap" value="Ne" checked/><span class="radio-box"><span class="radio-dot"></span><span><strong>Ne</strong></span></span></label>
+                <label class="radio-option"><input type="radio" name="adSwap" value="Da"/><span class="radio-box"><span class="radio-dot"></span><span><strong>Da</strong></span></span></label>
+                <label class="radio-option"><input type="radio" name="adSwap" value="Dogovor"/><span class="radio-box"><span class="radio-dot"></span><span><strong>Moguć dogovor</strong></span></span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. LOKACIJA -->
+        <div class="form-card">
+          <div class="form-card__head"><div class="form-card__num">5</div><h2>Lokacija</h2></div>
+          <div class="form-card__body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Grad <span class="req">*</span></label>
+                <select id="adCity">
+                  <option value="">— Izaberi grad —</option>
+                  <option>Beograd</option><option>Novi Sad</option><option>Niš</option>
+                  <option>Kragujevac</option><option>Subotica</option><option>Zrenjanin</option>
+                  <option>Pančevo</option><option>Čačak</option><option>Novi Pazar</option>
+                  <option>Kraljevo</option><option>Leskovac</option><option>Smederevo</option>
+                  <option>Vranje</option><option>Valjevo</option><option>Šabac</option>
+                  <option>Užice</option><option>Požarevac</option><option>Jagodina</option>
+                  <option>Kikinda</option><option>Sombor</option><option>Pirot</option>
+                  <option>Zaječar</option><option>Bor</option><option>Ostalo</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Opština / deo grada</label>
+                <input type="text" id="adMunicipality" placeholder="Npr. Zemun, Stari grad..."/>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Način preuzimanja</label>
+              <div class="checkbox-stack">
+                <label class="checkbox-option"><input type="checkbox" id="delPersonal" checked/><span>Lično preuzimanje</span></label>
+                <label class="checkbox-option"><input type="checkbox" id="delCourier"/><span>Kurirska služba</span></label>
+                <label class="checkbox-option"><input type="checkbox" id="delPost"/><span>Pošta</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. KONTAKT -->
+        <div class="form-card">
+          <div class="form-card__head"><div class="form-card__num">6</div><h2>Kontakt podaci</h2></div>
+          <div class="form-card__body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Ime kontakt osobe <span class="req">*</span></label>
+                <input type="text" id="adContactName" placeholder="Ime i prezime"/>
+              </div>
+              <div class="form-group">
+                <label>Telefon <span class="req">*</span></label>
+                <input type="tel" id="adPhone" placeholder="Npr. 064 123 4567"/>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Drugi telefon</label>
+              <input type="tel" id="adPhone2" placeholder="Opciono"/>
+            </div>
+            <div class="form-group">
+              <label>Dostupnost za kontakt</label>
+              <div class="checkbox-stack">
+                <label class="checkbox-option"><input type="checkbox" id="contMorning"/><span>Ujutro (8–12h)</span></label>
+                <label class="checkbox-option"><input type="checkbox" id="contAfternoon" checked/><span>Popodne (12–17h)</span></label>
+                <label class="checkbox-option"><input type="checkbox" id="contEvening" checked/><span>Uveče (17–21h)</span></label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-option" style="padding:12px 14px;border:1.5px solid var(--gray-200);border-radius:9px;display:flex">
+                <input type="checkbox" id="showEmail" style="width:17px;height:17px;accent-color:var(--green);cursor:pointer;flex-shrink:0"/>
+                <span style="margin-left:9px">Prikaži moju email adresu u oglasu</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBMIT -->
+        <div class="post-submit">
+          <div class="post-error-box" id="postErrorBox"></div>
+          <button class="btn btn--primary btn--lg btn--full" id="submitBtn" onclick="submitAd()">✅ Objavi oglas besplatno</button>
+          <p class="post-submit__note">Oglas je besplatan i odmah postaje vidljiv svim posetiocima sa svih uređaja.</p>
+        </div>
+      </div>
+
+      <!-- SIDEBAR -->
+      <aside class="post-tips">
+        <div class="tips-card">
+          <h3>💡 Saveti za bolji oglas</h3>
+          <ul>
+            <li><strong>Fotografije prodaju.</strong> Što više kvalitetnih fotografija, to pre prodaješ.</li>
+            <li><strong>Budi precizan.</strong> Napiši tačan model, godište, stanje.</li>
+            <li><strong>Realna cena.</strong> Proveri cene sličnih oglasa.</li>
+            <li><strong>Brzo odgovaraj.</strong> Budi prvi koji odgovara kupcima.</li>
+          </ul>
+        </div>
+        <div class="tips-card tips-card--green">
+          <h3>☁️ Slike na Cloudinary</h3>
+          <p>Slike se čuvaju na serveru — rade sa svih uređaja, nema limita.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<!-- SUCCESS -->
+<div class="success-screen" id="successScreen">
+  <div class="success-screen__inner">
+    <div style="font-size:5rem;margin-bottom:18px">🎉</div>
+    <h2 style="font-size:1.9rem;font-weight:800;margin-bottom:10px">Oglas je poslat! ✅</h2>
+    <p style="color:var(--gray-500);margin-bottom:16px">Tvoj oglas je primljen i čeka moderaciju.</p>
+    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:10px;padding:14px 18px;margin-bottom:24px;font-size:.9rem;color:#92400e;text-align:left">
+      ⏳ <strong>Šta se dešava sada?</strong><br/>
+      Naš tim pregleda oglas (obično unutar nekoliko sati). Kada bude odobren, postaće vidljiv svim posetiocima.
+      Ako oglas ne bude odobren, dobićeš obaveštenje sa razlogom.
+    </div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a href="index.html" class="btn btn--primary btn--lg">Vidi sve oglase</a>
+      <a href="profil.html" class="btn btn--outline btn--lg">Moji oglasi</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/header.js"></script>
+<script src="js/cloudinary.js"></script>
+<script src="js/email.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/google-auth.js"></script>
+<script src="js/moderation.js"></script>
+<script src="js/photos.js"></script>
+<script>
+// photoItems se upravlja kroz js/photos.js
+
+var SUBCATS = {
+  'Elektronika':['Televizori','Audio oprema','Foto aparati','GPS uređaji','Ostala elektronika'],
+  'Mobilni telefoni':['Apple iPhone','Samsung','Huawei','Xiaomi','Sony','Ostali telefoni'],
+  'Kompjuteri':['Desktop računari','Laptopovi','Tableti','Monitori','Komponente','Ostalo'],
+  'Automobili':['Putnički automobili','Terenski automobili','Kombiji','Ostalo'],
+  'Motocikli':['Motocikli','Skuteri','Quad','Ostalo'],
+  'Bicikli':['MTB','Road','Gradski','Električni','Ostalo'],
+  'Odeća i obuća':['Muška odeća','Ženska odeća','Dečja odeća','Muška obuća','Ženska obuća','Ostalo'],
+  'Nameštaj':['Kauči','Kreveti','Trpezarije','Kuhinje','Ormari','Ostalo'],
+  'Kućni aparati':['Frižideri','Mašine za pranje','Šporeti','Usisivači','Mali aparati','Ostalo'],
+  'Sport':['Fitnes','Fudbal','Košarka','Tenis','Planinarenje','Zimski sportovi','Ostalo'],
+  'Knjige':['Romani','Naučna literatura','Udžbenici','Dečje knjige','Časopisi','Ostalo'],
+  'Muzički instrumenti':['Gitare','Klaviri','Bubnjevi','Duvački','Studio oprema','Ostalo'],
+};
+var VEHICLE=['Automobili','Motocikli','Bicikli'], CLOTHING=['Odeća i obuća'];
+
+// Photo upload
+document.getElementById('photoFileInput').addEventListener('change', function(e) {
+  photosAddFiles(Array.from(e.target.files)); e.target.value='';
+});
+var photoArea = document.getElementById('photoArea');
+photoArea.addEventListener('dragover', function(e){ e.preventDefault(); photoArea.classList.add('drag'); });
+photoArea.addEventListener('dragleave', function(){ photoArea.classList.remove('drag'); });
+photoArea.addEventListener('drop', function(e){
+  e.preventDefault(); photoArea.classList.remove('drag');
+  photosAddFiles(Array.from(e.dataTransfer.files));
+});
+
+function addFiles(files) {
+  var rem = 20 - photoItems.length;
+  files.slice(0,rem).forEach(function(file) {
+    var idx = photoItems.length;
+    photoItems.push({ file:file, previewUrl:URL.createObjectURL(file), cloudUrl:null, uploading:true, progress:0 });
+    renderPhotos();
+    uploadToCloudinary(file,
+      function(pct){ photoItems[idx].progress=pct; renderPhotos(); },
+      function(url){ photoItems[idx].cloudUrl=url; photoItems[idx].uploading=false; renderPhotos(); updateUploadStatus(); },
+      function(err){ photoItems[idx].uploading=false; photoItems[idx].error=true; renderPhotos(); showError('Upload greška: '+err); }
+    );
+  });
+  updateUploadStatus();
+}
+
+function renderPhotos() {
+  var grid = document.getElementById('photoGrid');
+  grid.innerHTML = photoItems.map(function(p,i){
+    var inner = '<img src="'+p.previewUrl+'" alt="foto"/>';
+    if (i===0) inner += '<div class="photo-thumb__label">Naslovna</div>';
+    if (p.uploading) {
+      inner += '<div class="photo-thumb__uploading"><div class="photo-thumb__bar"><div class="photo-thumb__bar-fill" style="width:'+p.progress+'%"></div></div>'+p.progress+'%</div>';
+    } else if (p.error) {
+      inner += '<div class="photo-thumb__uploading" style="background:rgba(220,38,38,.6)">❌</div>';
+    } else {
+      inner += '<div style="position:absolute;top:4px;left:4px;background:rgba(26,143,75,.85);color:#fff;font-size:.6rem;padding:1px 5px;border-radius:3px;font-weight:700">☁️</div>';
+    }
+    inner += '<button class="photo-thumb__remove" onclick="removePhoto('+i+')">✕</button>';
+    return '<div class="photo-thumb">'+inner+'</div>';
+  }).join('');
+}
+
+function removePhoto(i){ URL.revokeObjectURL(photoItems[i].previewUrl); photoItems.splice(i,1); renderPhotos(); updateUploadStatus(); }
+
+function updateUploadStatus() {
+  var total=photoItems.length, uploading=photoItems.filter(function(p){return p.uploading;}).length;
+  var el=document.getElementById('uploadStatus');
+  if (!total) { el.textContent=''; return; }
+  if (uploading) { el.textContent='⬆️ Uploaduje se '+uploading+' od '+total+' slika...'; el.style.color='var(--gray-500)'; }
+  else { el.textContent='✅ '+total+' slika uploadovano na Cloudinary'; el.style.color='var(--green)'; }
+}
+
+function allUploaded() {
+  return photoItems.every(function(p){ return p.cloudUrl || p.error; });
+}
+
+function onCatChange() {
+  var cat=document.getElementById('adCategory').value;
+  var subW=document.getElementById('subCatWrap'), subS=document.getElementById('adSubcategory');
+  if (SUBCATS[cat]) {
+    subS.innerHTML='<option value="">— Izaberi potkategoriju —</option>'+SUBCATS[cat].map(function(s){return '<option>'+s+'</option>';}).join('');
+    subW.style.display='block';
+  } else { subW.style.display='none'; subS.value=''; }
+  document.getElementById('mileageWrap').style.display=VEHICLE.indexOf(cat)>-1?'block':'none';
+  document.getElementById('yearWrap').style.display=VEHICLE.indexOf(cat)>-1?'block':'none';
+  document.getElementById('sizeWrap').style.display=CLOTHING.indexOf(cat)>-1?'block':'none';
+}
+
+(function(){
+  var sel=document.getElementById('adYear');
+  for(var y=new Date().getFullYear();y>=1970;y--){
+    sel.insertAdjacentHTML('beforeend','<option value="'+y+'">'+y+'</option>');
+  }
+})();
+
+document.getElementById('adTitle').addEventListener('input',function(){document.getElementById('titleLen').textContent=this.value.length;});
+document.getElementById('adDesc').addEventListener('input',function(){document.getElementById('descLen').textContent=this.value.length;});
+document.getElementById('adFree').addEventListener('change',function(){
+  var p=document.getElementById('adPrice');
+  if(this.checked){p.value='0';p.disabled=true;}else{p.value='';p.disabled=false;}
+});
+
+function showError(msg){ var b=document.getElementById('postErrorBox'); b.textContent=msg; b.style.display='block'; b.scrollIntoView({behavior:'smooth',block:'center'}); }
+function clearError(){ var b=document.getElementById('postErrorBox'); b.style.display='none'; b.textContent=''; }
+
+function submitAd() {
+  clearError();
+  var user=SESSION.get();
+  if (!user) { openLoginModal(); return; }
+
+  var category=document.getElementById('adCategory').value;
+  var subcategory=document.getElementById('adSubcategory').value;
+  var title=document.getElementById('adTitle').value.trim();
+  var desc=document.getElementById('adDesc').value.trim();
+  var price=document.getElementById('adPrice').value;
+  var isFree=document.getElementById('adFree').checked;
+  var city=document.getElementById('adCity').value;
+  var contactName=document.getElementById('adContactName').value.trim();
+  var phone=document.getElementById('adPhone').value.trim();
+
+  if (!category)         { showError('⚠️ Izaberi kategoriju.'); return; }
+  if (!title||title.length<5) { showError('⚠️ Naslov mora imati minimum 5 karaktera.'); return; }
+  if (!desc||desc.length<20)  { showError('⚠️ Opis mora imati minimum 20 karaktera.'); return; }
+  if (!isFree && !price) { showError('⚠️ Unesi cenu ili čekiraj "Poklanjam besplatno".'); return; }
+  if (!city)             { showError('⚠️ Izaberi grad.'); return; }
+  if (!contactName)      { showError('⚠️ Unesi ime kontakt osobe.'); return; }
+  if (!phone)            { showError('⚠️ Unesi broj telefona.'); return; }
+  if (!allUploaded())    { showError('⏳ Sačekaj da se sve fotografije uploaduju.'); return; }
+
+  var delivery=[];
+  if(document.getElementById('delPersonal').checked) delivery.push('Lično preuzimanje');
+  if(document.getElementById('delCourier').checked)  delivery.push('Kurirska služba');
+  if(document.getElementById('delPost').checked)     delivery.push('Pošta');
+
+  var availability=[];
+  if(document.getElementById('contMorning').checked)   availability.push('Ujutro 8–12h');
+  if(document.getElementById('contAfternoon').checked) availability.push('Popodne 12–17h');
+  if(document.getElementById('contEvening').checked)   availability.push('Uveče 17–21h');
+
+  var cloudPhotos = photosGetUrls();
+
+  var ad = {
+    user_email:   user.email,
+    user_name:    user.name,
+    title:        title,
+    category:     category,
+    subcategory:  subcategory,
+    description:  desc,
+    condition:    (document.querySelector('input[name="adCondition"]:checked')||{}).value||'Polovno',
+    price:        isFree ? 0 : (parseFloat(price)||0),
+    is_free:      isFree,
+    is_fixed:     document.getElementById('adFixed').checked,
+    swap:         (document.querySelector('input[name="adSwap"]:checked')||{}).value||'Ne',
+    city:         city,
+    municipality: document.getElementById('adMunicipality').value.trim(),
+    contact_name: contactName,
+    phone:        phone,
+    phone2:       document.getElementById('adPhone2').value.trim(),
+    show_email:   document.getElementById('showEmail').checked ? user.email : '',
+    delivery:     delivery,
+    availability: availability,
+    mileage:      document.getElementById('adMileage').value||'',
+    year:         document.getElementById('adYear').value||'',
+    size:         document.getElementById('adSize').value||'',
+    photos:       cloudPhotos,
+    active:       true
+  };
+
+  var btn=document.getElementById('submitBtn');
+  btn.disabled=true; btn.textContent='⏳ Objavljivanje...';
+
+  // Moderacija teksta pre slanja
+  moderateAd(ad, []).then(function(modResult) {
+    ad.status = modResult.status; // 'pending' ili 'rejected'
+    ad.reject_reason = modResult.reason || '';
+    return SB.insertAd(ad);
+  }).then(function() {
+    document.getElementById('successScreen').style.display='flex';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }).catch(function(e) {
+    showError('Greška pri objavljivanju: ' + e.message);
+    btn.disabled=false; btn.textContent='✅ Objavi oglas besplatno';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  renderHeader();
+  var user=SESSION.get();
+  if (user) {
+    document.getElementById('adContactName').value=user.name||'';
+    document.getElementById('adPhone').value=user.phone||'';
+    if (user.city) document.getElementById('adCity').value=user.city;
+  }
+});
+</script>
+</body>
+</html>

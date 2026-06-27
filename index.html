@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>ProdajKupi — Besplatni oglasi</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1a8f4b"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+<header class="header">
+  <div class="header__top">
+    <div class="header__top-inner">
+      <a href="index.html" class="logo"><span class="logo__prodaj">Prodaj</span><span class="logo__kupi">Kupi</span></a>
+      <div class="search-bar">
+        <input type="text" id="searchInput" class="search-bar__input" placeholder="Pretraži oglase..."/>
+        <select id="searchCategory" class="search-bar__select"><option value="">Sve kategorije</option></select>
+        <button class="search-bar__btn" onclick="goSearch()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Pretraži
+        </button>
+      </div>
+      <div class="header__actions" id="headerActions"></div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero__text">
+      <h1>Besplatni oglasi<br/><span>za sve u regionu.</span></h1>
+      <p>Prodaj stare stvari, pronađi povoljne prilike. Bez naknade — zauvek besplatno.</p>
+      <div class="hero__btns">
+        <a href="postavi-oglas.html" class="btn btn--primary btn--lg">+ Postavi oglas besplatno</a>
+        <a href="pretraga.html" class="btn btn--ghost btn--lg">Pretraži oglase</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section__header">
+      <h2 class="section__title">Najnoviji oglasi</h2>
+      <a href="pretraga.html" class="section__link">Vidi sve →</a>
+    </div>
+    <div id="loadingState" style="text-align:center;padding:60px;color:var(--gray-400)">⏳ Učitavanje oglasa...</div>
+    <div class="listings__grid" id="listingsGrid" style="display:none"></div>
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="empty-state__icon">📭</div>
+      <h3>Još nema oglasa</h3>
+      <p>Budi prvi koji će postaviti oglas!</p>
+      <a href="postavi-oglas.html" class="btn btn--primary">Postavi oglas</a>
+    </div>
+  </div>
+</section>
+
+<section class="section section--gray">
+  <div class="container">
+    <h2 class="section__title" style="text-align:center;margin-bottom:8px">Kako funkcioniše?</h2>
+    <div class="how__steps">
+      <div class="how__step"><div class="how__step-num">1</div><div class="how__step-icon">📝</div><h3>Registruj se</h3><p>Kreiraj nalog za nekoliko sekundi. Radi sa svih uređaja.</p></div>
+      <div class="how__step"><div class="how__step-num">2</div><div class="how__step-icon">📸</div><h3>Postavi oglas</h3><p>Dodaj slike, opiši predmet, postavi cenu i lokaciju.</p></div>
+      <div class="how__step"><div class="how__step-num">3</div><div class="how__step-icon">👁️</div><h3>Budi vidljiv</h3><p>Oglas odmah vide svi posetioci sa svih uređaja.</p></div>
+      <div class="how__step"><div class="how__step-num">4</div><div class="how__step-icon">🤝</div><h3>Prodaj</h3><p>Kupac te kontaktira, dogovorite se i prodaješ!</p></div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container footer__inner">
+    <div class="footer__brand">
+      <a href="index.html" class="logo"><span class="logo__prodaj">Prodaj</span><span class="logo__kupi">Kupi</span></a>
+      <p>Besplatna platforma za oglase. Bez skrivenih troškova.</p>
+    </div>
+    <div class="footer__col"><h4>Sajt</h4><a href="index.html">Početna</a><a href="pretraga.html">Pretraga</a><a href="postavi-oglas.html">Postavi oglas</a></div>
+    <div class="footer__col"><h4>Nalog</h4><a href="#" onclick="openRegModal()">Registracija</a><a href="#" onclick="openLoginModal()">Prijava</a><a href="profil.html">Moj profil</a></div>
+    <div class="footer__col"><h4>Pomoć</h4><a href="#">O nama</a><a href="#">Kontakt</a><a href="#">Pravila</a></div>
+  </div>
+  <div class="footer__bottom"><div class="container"><span>© 2025 ProdajKupi</span><span>❤️ Srbija</span></div></div>
+</footer>
+
+<div class="modal-overlay" id="detailModal">
+  <div class="modal modal--wide" id="detailContent"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/header.js"></script>
+<script src="js/shared.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/google-auth.js"></script>
+<script src="js/renew.js"></script>
+<script src="js/photos.js"></script>
+<script>
+ALL_CATS.forEach(function(c) {
+  document.getElementById('searchCategory').insertAdjacentHTML('beforeend','<option value="'+c+'">'+c+'</option>');
+});
+
+function goSearch() {
+  var q   = document.getElementById('searchInput').value.trim();
+  var cat = document.getElementById('searchCategory').value;
+  var url = 'pretraga.html?';
+  if (q)   url += 'q='   + encodeURIComponent(q)   + '&';
+  if (cat) url += 'cat=' + encodeURIComponent(cat);
+  window.location.href = url;
+}
+document.getElementById('searchInput').addEventListener('keydown', function(e){ if(e.key==='Enter') goSearch(); });
+
+function renderHome() {
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('listingsGrid').style.display = 'none';
+  document.getElementById('emptyState').style.display   = 'none';
+
+  SB.getAds({ perPage: 8 }).then(function(ads) {
+    document.getElementById('loadingState').style.display = 'none';
+    if (!ads || !ads.length) {
+      document.getElementById('emptyState').style.display = 'block';
+      return;
+    }
+    document.getElementById('listingsGrid').style.display = 'grid';
+    document.getElementById('listingsGrid').innerHTML = ads.map(function(ad){ return adCard(ad); }).join('');
+  }).catch(function(e) {
+    document.getElementById('loadingState').textContent = 'Greška pri učitavanju: ' + e.message;
+  });
+}
+
+document.getElementById('detailModal').addEventListener('click', function(e){ if(e.target.id==='detailModal') closeModal('detailModal'); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal('detailModal'); });
+document.addEventListener('DOMContentLoaded', function(){
+  renderHeader(); renderHome();
+  // Register Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
+  }
+});
+</script>
+</body>
+</html>

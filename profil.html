@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Moj profil — ProdajKupi</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1a8f4b"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+<header class="header">
+  <div class="header__top">
+    <div class="header__top-inner">
+      <a href="index.html" class="logo"><span class="logo__prodaj">Prodaj</span><span class="logo__kupi">Kupi</span></a>
+      <div class="header__actions" id="headerActions"></div>
+    </div>
+  </div>
+</header>
+
+<main class="profile-page">
+  <div class="container">
+    <div id="profileRoot"></div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/header.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/google-auth.js"></script>
+<script src="js/renew.js"></script>
+<script src="js/shared.js"></script>
+<script>
+function renderProfile() {
+  renderHeader();
+  var user = SESSION.get();
+  if (!user) {
+    document.getElementById('profileRoot').innerHTML =
+      '<div class="empty-state"><div class="empty-state__icon">🔒</div>' +
+      '<h3>Nisi prijavljen/a</h3><p>Moraš biti prijavljen/a da vidiš profil.</p>' +
+      '<button class="btn btn--primary" onclick="openLoginModal()">Prijavi se</button></div>';
+    return;
+  }
+
+  var since = new Date().toLocaleDateString('sr-RS',{year:'numeric',month:'long'});
+
+  document.getElementById('profileRoot').innerHTML =
+    '<div class="profile-layout">' +
+      '<aside class="profile-sidebar">' +
+        '<div class="profile-avatar">' +
+          '<div class="profile-avatar__circle">' + escHtml(user.name.charAt(0).toUpperCase()) + '</div>' +
+          '<div class="profile-avatar__name">' + escHtml(user.name) + '</div>' +
+          '<div class="profile-avatar__since">' + escHtml(user.email) + '</div>' +
+        '</div>' +
+        '<nav class="profile-nav">' +
+          '<a onclick="showSec(\'overview\')" id="nav-overview" class="active"><span class="nav-icon">📊</span> Pregled</a>' +
+          '<a onclick="showSec(\'myads\')" id="nav-myads"><span class="nav-icon">📋</span> Moji oglasi</a>' +
+          '<a onclick="showSec(\'favorites\')" id="nav-favorites"><span class="nav-icon">♥</span> Sačuvani</a>' +
+          '<a href="ocene.html" id="nav-ocene"><span class="nav-icon">👍</span> Moje ocene</a>' +
+          '<a onclick="showSec(\'settings\')" id="nav-settings"><span class="nav-icon">⚙️</span> Podešavanja</a>' +
+          '<a onclick="doLogout()" style="color:var(--red)"><span class="nav-icon">🚪</span> Odjavi se</a>' +
+        '</nav>' +
+      '</aside>' +
+      '<div class="profile-content">' +
+        '<div id="sec-overview" class="profile-section">' +
+          '<h3>📊 Pregled naloga</h3>' +
+          '<div id="overviewStats"><div style="color:var(--gray-400)">⏳ Učitavanje...</div></div>' +
+          '<div style="background:var(--green-light);border-radius:12px;padding:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:16px">' +
+            '<div><div style="font-weight:700;margin-bottom:4px">Spreman/na da prodaješ?</div>' +
+            '<div style="font-size:.85rem;color:var(--gray-600)">Postavi oglas besplatno za manje od 3 minute.</div></div>' +
+            '<a href="postavi-oglas.html" class="btn btn--primary">+ Postavi oglas</a>' +
+          '</div>' +
+        '</div>' +
+        '<div id="sec-myads" class="profile-section" style="display:none">' +
+          '<h3>📋 Moji oglasi</h3>' +
+          '<div id="myAdsList"><div style="color:var(--gray-400)">⏳ Učitavanje...</div></div>' +
+        '</div>' +
+        '<div id="sec-favorites" class="profile-section" style="display:none">' +
+          '<h3>♥ Sačuvani oglasi</h3>' +
+          '<div id="favList"><div style="color:var(--gray-400)">⏳ Učitavanje...</div></div>' +
+        '</div>' +
+        '<div id="sec-settings" class="profile-section" style="display:none">' +
+          '<h3>⚙️ Podešavanja naloga</h3>' +
+          '<div class="form-group"><label>Ime i prezime</label><input type="text" id="setName" value="' + escHtml(user.name) + '"/></div>' +
+          '<div class="form-row">' +
+            '<div class="form-group"><label>Email</label><input type="email" value="' + escHtml(user.email) + '" disabled style="background:var(--gray-100);color:var(--gray-400)"/></div>' +
+            '<div class="form-group"><label>Telefon</label><input type="tel" id="setPhone" value="' + escHtml(user.phone||'') + '"/></div>' +
+          '</div>' +
+          '<div class="form-group"><label>Grad</label><select id="setCity">' +
+            ALL_CITIES.map(function(c){return '<option'+(c===user.city?' selected':'')+'>'+c+'</option>';}).join('') +
+          '</select></div>' +
+          '<div style="border-top:1px solid var(--gray-200);margin:20px 0;padding-top:20px">' +
+            '<h4 style="font-size:.95rem;font-weight:700;margin-bottom:14px">Promena lozinke</h4>' +
+            '<div class="form-group"><label>Nova lozinka</label><input type="password" id="setPass" placeholder="Min. 6 karaktera"/></div>' +
+            '<div class="form-group"><label>Potvrdi lozinku</label><input type="password" id="setPass2" placeholder="Ponovi lozinku"/></div>' +
+          '</div>' +
+          '<div style="background:var(--green-light);border-radius:10px;padding:14px 16px;margin-bottom:16px">' +
+            '<div style="font-weight:700;font-size:.9rem;margin-bottom:6px">🔔 Push notifikacije</div>' +
+            '<div style="font-size:.82rem;color:var(--gray-600);margin-bottom:10px">Primaj obaveštenja o porukama i oglasima direktno na telefon.</div>' +
+            '<button class="btn btn--primary btn--sm" onclick="enablePush()">Uključi notifikacije</button>' +
+          '</div>' +
+          '<div id="setError" class="form-error"></div>' +
+          '<button class="btn btn--primary" id="saveSettingsBtn" onclick="saveSettings()">Sačuvaj promene</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  loadOverviewStats(user.email);
+}
+
+function showSec(name) {
+  ['overview','myads','favorites','settings'].forEach(function(s) {
+    document.getElementById('sec-'+s).style.display = s===name ? 'block' : 'none';
+    var nav = document.getElementById('nav-'+s);
+    if (nav) nav.classList.toggle('active', s===name);
+  });
+  if (name==='myads') loadMyAds();
+  if (name==='favorites') loadFavorites();
+}
+
+function loadOverviewStats(email) {
+  SB.getAds({ userEmail: email, perPage: 100 }).then(function(ads) {
+    var favIds = LOCAL_FAVS.get();
+    document.getElementById('overviewStats').innerHTML =
+      '<div class="profile-stats">' +
+        '<div class="profile-stat"><strong>' + (ads||[]).length + '</strong><span>Mojih oglasa</span></div>' +
+        '<div class="profile-stat"><strong>' + (ads||[]).filter(function(a){return a.active;}).length + '</strong><span>Aktivnih</span></div>' +
+        '<div class="profile-stat"><strong>' + favIds.length + '</strong><span>Sačuvanih</span></div>' +
+      '</div>';
+  });
+}
+
+function loadMyAds() {
+  var user = SESSION.get(); if (!user) return;
+  SB.getAds({ userEmail: user.email, perPage: 100 }).then(function(ads) {
+    ads = ads || [];
+    var list = document.getElementById('myAdsList');
+    if (!ads.length) {
+      list.innerHTML = '<div class="empty-state" style="padding:40px 0"><div class="empty-state__icon">📭</div><h3>Nemaš oglasa</h3><a href="postavi-oglas.html" class="btn btn--primary">Postavi oglas</a></div>';
+      return;
+    }
+    list.innerHTML = ads.map(function(ad) {
+      var photos = ad.photos || [];
+      var thumb = photos.length ? '<img src="'+photos[0]+'" alt="foto"/>' : (EMOJI[ad.category]||'📦');
+      return '<div class="my-ad-card">' +
+        '<div class="my-ad-card__thumb">' + thumb + '</div>' +
+        '<div class="my-ad-card__body">' +
+          '<div class="my-ad-card__title">' + escHtml(ad.title) + '</div>' +
+          '<div class="my-ad-card__price">' + (ad.is_free?'Besplatno':Number(ad.price||0).toLocaleString('sr-RS')+' RSD') + '</div>' +
+          '<div class="my-ad-card__meta">📍 ' + escHtml(ad.city||'') + ' · ' + timeAgo(ad.created_at) + '</div>' +
+        '</div>' +
+        '<div class="my-ad-card__actions">' +
+          '<a href="uredi-oglas.html?id=' + ad.id + '" class="btn btn--outline btn--sm">✏️ Uredi</a>' +
+          '<button class="btn btn--danger btn--sm" onclick="deleteMyAd(\''+ad.id+'\')">🗑️</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  });
+}
+
+function loadFavorites() {
+  var favIds = LOCAL_FAVS.get();
+  var list = document.getElementById('favList');
+  if (!favIds.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:40px 0"><div class="empty-state__icon">🔖</div><h3>Nema sačuvanih</h3><a href="pretraga.html" class="btn btn--outline">Pretraži oglase</a></div>';
+    return;
+  }
+  // Dohvati svaki oglas
+  Promise.all(favIds.map(function(id){ return SB.getAdById(id); }))
+    .then(function(ads) {
+      ads = ads.filter(Boolean);
+      if (!ads.length) { list.innerHTML = '<p style="color:var(--gray-400)">Sačuvani oglasi su obrisani.</p>'; return; }
+      list.innerHTML = ads.map(function(ad) {
+        var photos = ad.photos || [];
+        var thumb = photos.length ? '<img src="'+photos[0]+'" alt="foto"/>' : (EMOJI[ad.category]||'📦');
+        return '<div class="my-ad-card">' +
+          '<div class="my-ad-card__thumb">' + thumb + '</div>' +
+          '<div class="my-ad-card__body">' +
+            '<div class="my-ad-card__title">' + escHtml(ad.title) + '</div>' +
+            '<div class="my-ad-card__price">' + (ad.is_free?'Besplatno':Number(ad.price||0).toLocaleString('sr-RS')+' RSD') + '</div>' +
+            '<div class="my-ad-card__meta">📍 ' + escHtml(ad.city||'') + '</div>' +
+          '</div>' +
+          '<div class="my-ad-card__actions">' +
+            '<button class="btn btn--gray btn--sm" onclick="removeFav(\''+ad.id+'\')">✕ Ukloni</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    });
+}
+
+function deleteMyAd(id) {
+  if (!confirm('Obrisati oglas?')) return;
+  SB.deleteAd(id).then(function(){ showToast('Oglas obrisan.','info'); loadMyAds(); loadOverviewStats(SESSION.get().email); })
+    .catch(function(e){ showToast('Greška: '+e.message,'error'); });
+}
+
+function removeFav(id) { LOCAL_FAVS.toggle(id); showToast('Uklonjeno.','info'); loadFavorites(); }
+
+function saveSettings() {
+  var user  = SESSION.get();
+  var name  = document.getElementById('setName').value.trim();
+  var phone = document.getElementById('setPhone').value.trim();
+  var city  = document.getElementById('setCity').value;
+  var pass  = document.getElementById('setPass').value;
+  var pass2 = document.getElementById('setPass2').value;
+  var err   = document.getElementById('setError');
+  err.textContent = '';
+  if (!name) { err.textContent = 'Ime ne sme biti prazno.'; return; }
+  if (pass && pass.length < 6) { err.textContent = 'Lozinka mora imati min. 6 karaktera.'; return; }
+  if (pass && pass !== pass2)  { err.textContent = 'Lozinke se ne poklapaju.'; return; }
+  var patch = { name: name, phone: phone, city: city };
+  if (pass) patch.pass = pass;
+  var btn = document.getElementById('saveSettingsBtn');
+  btn.disabled = true; btn.textContent = '⏳ Čuvanje...';
+  SB.updateUser(user.id, patch).then(function() {
+    renderHeader();
+    showToast('Podešavanja sačuvana! ✅');
+    btn.disabled = false; btn.textContent = 'Sačuvaj promene';
+    document.getElementById('setPass').value = '';
+    document.getElementById('setPass2').value = '';
+  }).catch(function(e){ err.textContent = e.message; btn.disabled=false; btn.textContent='Sačuvaj promene'; });
+}
+
+function enablePush() {
+  var user = SESSION.get();
+  if (!user) return;
+  if (typeof requestPushPermission === 'function') {
+    requestPushPermission(user.email).then(function(ok) {
+      showToast(ok ? 'Push notifikacije uključene! 🔔' : 'Nije moguće uključiti notifikacije.', ok ? 'success' : 'error');
+    });
+  }
+}
+
+function doLogout() {
+  if (!confirm('Odjavi se?')) return;
+  SB.logout(); window.location.href = 'index.html';
+}
+
+document.addEventListener('DOMContentLoaded', renderProfile);
+</script>
+</body>
+</html>

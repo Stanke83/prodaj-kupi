@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Admin — ProdajKupi</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1a8f4b"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    body{background:var(--gray-50)}
+    .admin-header{background:var(--gray-800);color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+    .admin-header h1{font-size:1.1rem;font-weight:700}
+    .admin-header span{font-size:.85rem;color:rgba(255,255,255,.6)}
+    .admin-wrap{max-width:1100px;margin:0 auto;padding:28px 20px}
+    .admin-tabs{display:flex;gap:0;border-bottom:2px solid var(--gray-200);margin-bottom:24px}
+    .admin-tab{padding:10px 22px;font-size:.92rem;font-weight:600;cursor:pointer;color:var(--gray-500);border-bottom:2px solid transparent;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--font);transition:all .15s}
+    .admin-tab.active{color:var(--green);border-bottom-color:var(--green)}
+    .admin-tab:hover{color:var(--gray-800)}
+    .tab-badge{display:inline-block;background:#ef4444;color:#fff;font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:6px}
+    .tab-badge--gray{background:var(--gray-300);color:var(--gray-700)}
+
+    /* STATS */
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+    .stat-card{background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:20px;text-align:center}
+    .stat-card strong{display:block;font-size:2rem;font-weight:800;margin-bottom:4px}
+    .stat-card span{font-size:.82rem;color:var(--gray-500)}
+    .stat-card--pending strong{color:#f59e0b}
+    .stat-card--approved strong{color:var(--green)}
+    .stat-card--rejected strong{color:#ef4444}
+    .stat-card--total strong{color:var(--gray-800)}
+
+    /* AD CARDS */
+    .mod-card{background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:20px;margin-bottom:14px;display:grid;grid-template-columns:180px 1fr auto;gap:20px;align-items:start}
+    .mod-card__photos{display:flex;flex-direction:column;gap:6px}
+    .mod-card__main-img{width:180px;height:130px;object-fit:cover;border-radius:8px;background:var(--gray-100);display:flex;align-items:center;justify-content:center;font-size:2.5rem;cursor:pointer}
+    .mod-card__main-img img{width:100%;height:100%;object-fit:cover;border-radius:8px}
+    .mod-card__thumbs{display:flex;gap:4px;flex-wrap:wrap}
+    .mod-card__thumbs img{width:36px;height:36px;object-fit:cover;border-radius:5px;cursor:pointer;opacity:.75;transition:opacity .15s}
+    .mod-card__thumbs img:hover{opacity:1}
+    .mod-card__info h3{font-size:1rem;font-weight:700;margin-bottom:6px}
+    .mod-card__meta{display:flex;gap:12px;flex-wrap:wrap;font-size:.8rem;color:var(--gray-500);margin-bottom:10px}
+    .mod-card__meta strong{color:var(--gray-800)}
+    .mod-card__desc{font-size:.85rem;color:var(--gray-600);line-height:1.6;background:var(--gray-50);padding:10px 12px;border-radius:8px;max-height:100px;overflow-y:auto;margin-bottom:10px;white-space:pre-line}
+    .mod-card__seller{font-size:.8rem;color:var(--gray-500);padding:8px 12px;background:var(--gray-50);border-radius:8px}
+    .mod-card__actions{display:flex;flex-direction:column;gap:8px;min-width:140px}
+    .status-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700}
+    .status-badge--pending{background:#fef9c3;color:#92400e}
+    .status-badge--approved{background:var(--green-light);color:var(--green-dark)}
+    .status-badge--rejected{background:#fef2f2;color:#dc2626}
+
+    /* REJECT MODAL */
+    .reject-modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:none;align-items:center;justify-content:center;padding:20px}
+    .reject-modal-wrap.open{display:flex}
+    .reject-modal{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:480px}
+    .reject-modal h3{font-size:1.1rem;font-weight:700;margin-bottom:8px}
+    .reject-modal p{font-size:.88rem;color:var(--gray-600);margin-bottom:16px}
+    .reject-reasons{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+    .reject-reason-btn{padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:8px;background:#fff;text-align:left;cursor:pointer;font-size:.88rem;font-family:var(--font);transition:all .15s}
+    .reject-reason-btn:hover{border-color:#ef4444;background:#fef2f2;color:#dc2626}
+    .reject-reason-btn.selected{border-color:#ef4444;background:#fef2f2;color:#dc2626;font-weight:600}
+
+    .empty-admin{text-align:center;padding:60px 20px;color:var(--gray-400)}
+    .empty-admin .icon{font-size:3rem;margin-bottom:12px}
+    @media(max-width:768px){.mod-card{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+
+<div class="admin-header">
+  <h1>🛡️ ProdajKupi — Admin panel</h1>
+  <span id="adminEmail"></span>
+</div>
+
+<div class="admin-wrap">
+
+  <!-- AUTH CHECK -->
+  <div id="authCheck" style="text-align:center;padding:80px 20px">
+    <div style="font-size:2rem;margin-bottom:12px">🔐</div>
+    <p style="color:var(--gray-500)">Provera pristupa...</p>
+  </div>
+
+  <!-- ADMIN CONTENT -->
+  <div id="adminContent" style="display:none">
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card stat-card--pending"><strong id="statPending">—</strong><span>Na čekanju</span></div>
+      <div class="stat-card stat-card--approved"><strong id="statApproved">—</strong><span>Odobreno</span></div>
+      <div class="stat-card stat-card--rejected"><strong id="statRejected">—</strong><span>Odbijeno</span></div>
+      <div class="stat-card stat-card--total"><strong id="statTotal">—</strong><span>Ukupno oglasa</span></div>
+    </div>
+
+    <!-- TABS -->
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="loadTab('pending',this)">Na čekanju <span class="tab-badge" id="pendingBadge">0</span></button>
+      <button class="admin-tab" onclick="loadTab('approved',this)">Odobreni <span class="tab-badge tab-badge--gray" id="approvedBadge">0</span></button>
+      <button class="admin-tab" onclick="loadTab('rejected',this)">Odbijeni <span class="tab-badge tab-badge--gray" id="rejectedBadge">0</span></button>
+    </div>
+
+    <div id="adsList"></div>
+  </div>
+</div>
+
+<!-- REJECT MODAL -->
+<div class="reject-modal-wrap" id="rejectModalWrap">
+  <div class="reject-modal">
+    <h3>Odbaci oglas</h3>
+    <p>Izaberi razlog odbijanja — korisnik će biti obavešten.</p>
+    <div class="reject-reasons">
+      <button class="reject-reason-btn" onclick="selectReason(this)">🔞 Seksualni ili eksplicitni sadržaj</button>
+      <button class="reject-reason-btn" onclick="selectReason(this)">🚫 Ilegalni proizvodi ili usluge</button>
+      <button class="reject-reason-btn" onclick="selectReason(this)">💊 Droge, oružje ili opasne supstance</button>
+      <button class="reject-reason-btn" onclick="selectReason(this)">🎭 Prevara ili lažni oglas</button>
+      <button class="reject-reason-btn" onclick="selectReason(this)">😠 Govor mržnje ili uznemiravanje</button>
+      <button class="reject-reason-btn" onclick="selectReason(this)">📋 Oglas je duplikat</button>
+      <button class="reject-reason-btn" onclick="selectReason(this)">❌ Nekvalitetan sadržaj / nedovoljno informacija</button>
+    </div>
+    <div class="form-group">
+      <label style="font-size:.85rem;font-weight:600;margin-bottom:6px;display:block">Dodatna napomena (opciono)</label>
+      <textarea id="rejectNote" rows="3" style="width:100%;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;font-family:var(--font);font-size:.9rem;resize:vertical" placeholder="Dodatno objašnjenje za korisnika..."></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn--gray" style="flex:1" onclick="closeRejectModal()">Otkaži</button>
+      <button class="btn btn--danger" style="flex:2" id="confirmRejectBtn" onclick="confirmReject()">Odbaci oglas</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/email.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/photos.js"></script>
+<script>
+var currentTab   = 'pending';
+var rejectAdId   = null;
+var selectedReason = null;
+var allAds       = { pending:[], approved:[], rejected:[] };
+
+async function init() {
+  var user = SESSION.get();
+  if (!user) {
+    document.getElementById('authCheck').innerHTML =
+      '<div style="font-size:2rem;margin-bottom:12px">🔐</div>' +
+      '<h3 style="margin-bottom:8px">Nisi prijavljen/a</h3>' +
+      '<p style="color:var(--gray-500);margin-bottom:20px">Prijavi se sa admin nalogom.</p>' +
+      '<a href="index.html" class="btn btn--primary">Idi na početnu</a>';
+    return;
+  }
+
+  // Proveri da li je admin
+  var isAdmin = await SB.isAdmin(user.email);
+  if (!isAdmin) {
+    document.getElementById('authCheck').innerHTML =
+      '<div style="font-size:2rem;margin-bottom:12px">🚫</div>' +
+      '<h3 style="margin-bottom:8px">Pristup odbijen</h3>' +
+      '<p style="color:var(--gray-500);margin-bottom:20px">Nemaš admin pristup.</p>' +
+      '<a href="index.html" class="btn btn--primary">Idi na početnu</a>';
+    return;
+  }
+
+  document.getElementById('adminEmail').textContent = user.email;
+  document.getElementById('authCheck').style.display = 'none';
+  document.getElementById('adminContent').style.display = 'block';
+
+  await loadAllAds();
+  renderStats();
+  loadTab('pending', document.querySelector('.admin-tab'));
+}
+
+async function loadAllAds() {
+  var [pending, approved, rejected] = await Promise.all([
+    SB.getAllAdsAdmin('pending'),
+    SB.getAllAdsAdmin('approved'),
+    SB.getAllAdsAdmin('rejected')
+  ]);
+  allAds.pending  = pending  || [];
+  allAds.approved = approved || [];
+  allAds.rejected = rejected || [];
+
+  document.getElementById('pendingBadge').textContent  = allAds.pending.length;
+  document.getElementById('approvedBadge').textContent = allAds.approved.length;
+  document.getElementById('rejectedBadge').textContent = allAds.rejected.length;
+}
+
+function renderStats() {
+  document.getElementById('statPending').textContent  = allAds.pending.length;
+  document.getElementById('statApproved').textContent = allAds.approved.length;
+  document.getElementById('statRejected').textContent = allAds.rejected.length;
+  document.getElementById('statTotal').textContent    = allAds.pending.length + allAds.approved.length + allAds.rejected.length;
+}
+
+function loadTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  renderAds(allAds[tab]);
+}
+
+function renderAds(ads) {
+  var list = document.getElementById('adsList');
+  if (!ads.length) {
+    list.innerHTML = '<div class="empty-admin"><div class="icon">✅</div><p>Nema oglasa u ovoj kategoriji.</p></div>';
+    return;
+  }
+
+  list.innerHTML = ads.map(function(ad) {
+    var photos = ad.photos || [];
+    var mainPhoto = photos.length
+      ? '<img src="' + photos[0] + '" alt="foto" onclick="openAdLightbox(' + JSON.stringify(photos).replace(/"/g,"'") + ',0)"/>'
+      : '<div style="width:180px;height:130px;background:var(--gray-100);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2.5rem">' + (EMOJI[ad.category]||'📦') + '</div>';
+
+    var thumbs = photos.length > 1
+      ? '<div class="mod-card__thumbs">' +
+          photos.slice(1).map(function(p, i) {
+            return '<img src="' + p + '" onclick="openAdLightbox(' + JSON.stringify(photos).replace(/"/g,"'") + ',' + (i+1) + ')" title="Uvećaj"/>';
+          }).join('') +
+        '</div>'
+      : '';
+
+    var statusBadge = '<span class="status-badge status-badge--' + ad.status + '">' +
+      (ad.status==='pending'?'⏳ Na čekanju':ad.status==='approved'?'✅ Odobreno':'❌ Odbijeno') + '</span>';
+
+    var rejectReason = ad.status === 'rejected' && ad.reject_reason
+      ? '<div style="background:#fef2f2;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#dc2626;margin-top:8px"><strong>Razlog odbijanja:</strong> ' + escHtml(ad.reject_reason) + '</div>'
+      : '';
+
+    var actions = '';
+    if (ad.status === 'pending') {
+      actions = '<button class="btn btn--primary btn--sm" onclick="approveAd(\'' + ad.id + '\')">✅ Odobri</button>' +
+                '<button class="btn btn--danger btn--sm" onclick="openRejectModal(\'' + ad.id + '\')">❌ Odbaci</button>';
+    } else if (ad.status === 'approved') {
+      actions = '<button class="btn btn--danger btn--sm" onclick="openRejectModal(\'' + ad.id + '\')">❌ Odbaci</button>';
+    } else {
+      actions = '<button class="btn btn--primary btn--sm" onclick="approveAd(\'' + ad.id + '\')">✅ Odobri ponovo</button>';
+    }
+
+    var price = ad.is_free ? 'Besplatno' : Number(ad.price||0).toLocaleString('sr-RS') + ' RSD';
+    var date  = new Date(ad.created_at).toLocaleString('sr-RS');
+
+    return '<div class="mod-card" id="modcard-' + ad.id + '">' +
+      '<div class="mod-card__photos">' +
+        '<div class="mod-card__main-img">' + mainPhoto + '</div>' +
+        thumbs +
+        '<div style="font-size:.72rem;color:var(--gray-400);margin-top:4px">' + photos.length + ' slika</div>' +
+      '</div>' +
+      '<div class="mod-card__info">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
+          statusBadge +
+          '<span style="font-size:.78rem;color:var(--gray-400)">' + date + '</span>' +
+        '</div>' +
+        '<h3>' + escHtml(ad.title) + '</h3>' +
+        '<div class="mod-card__meta">' +
+          '<span>📂 <strong>' + escHtml(ad.category) + '</strong></span>' +
+          '<span>📍 <strong>' + escHtml(ad.city||'') + '</strong></span>' +
+          '<span>💰 <strong>' + price + '</strong></span>' +
+          '<span>🏷️ ' + escHtml(ad.condition||'') + '</span>' +
+          (ad.expired_at ? '<span>⏱️ ' + (function(){ var d=Math.ceil((new Date(ad.expired_at)-Date.now())/(86400000)); return d>0?d+' dana':'Istekao'; })() + '</span>' : '') +
+        '</div>' +
+        '<div class="mod-card__desc">' + escHtml(ad.description) + '</div>' +
+        '<div class="mod-card__seller">' +
+          '👤 <strong>' + escHtml(ad.user_name) + '</strong> · ' + escHtml(ad.user_email) + '<br/>' +
+          '📞 ' + escHtml(ad.phone||'—') + ' · ' + escHtml(ad.contact_name||'') +
+        '</div>' +
+        rejectReason +
+      '</div>' +
+      '<div class="mod-card__actions">' + actions + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function approveAd(id) {
+  try {
+    await SB.approveAd(id);
+    // Dohvati oglas i pošalji email
+    var ad = allAds.pending.concat(allAds.approved).concat(allAds.rejected).find(function(a){return a.id===id;});
+    if (ad) {
+      var tpl = EmailTemplates.adApproved(ad.user_name, ad.title, ad.id);
+      sendEmail(ad.user_email, tpl.subject, tpl.html);
+      Notifs.add(ad.user_email, 'ad_approved', '✅ Oglas odobren', 'Tvoj oglas "' + ad.title + '" je odobren i vidljiv je svima.', 'index.html');
+    }
+    showToast('Oglas odobren! Email poslat. ✅');
+    await loadAllAds();
+    renderStats();
+    renderAds(allAds[currentTab]);
+  } catch(e) { showToast('Greška: ' + e.message, 'error'); }
+}
+
+function openRejectModal(id) {
+  rejectAdId = id;
+  selectedReason = null;
+  document.querySelectorAll('.reject-reason-btn').forEach(function(b){ b.classList.remove('selected'); });
+  document.getElementById('rejectNote').value = '';
+  document.getElementById('rejectModalWrap').classList.add('open');
+}
+
+function closeRejectModal() {
+  document.getElementById('rejectModalWrap').classList.remove('open');
+  rejectAdId = null;
+}
+
+function selectReason(btn) {
+  document.querySelectorAll('.reject-reason-btn').forEach(function(b){ b.classList.remove('selected'); });
+  btn.classList.add('selected');
+  selectedReason = btn.textContent.trim();
+}
+
+async function confirmReject() {
+  if (!selectedReason) { showToast('Izaberi razlog odbijanja.', 'error'); return; }
+  var note = document.getElementById('rejectNote').value.trim();
+  var fullReason = selectedReason + (note ? ' — ' + note : '');
+  try {
+    await SB.rejectAd(rejectAdId, fullReason);
+    closeRejectModal();
+    // Pošalji email korisniku
+    var rejAd = allAds.pending.concat(allAds.approved).concat(allAds.rejected).find(function(a){return a.id===rejectAdId;});
+    if (rejAd) {
+      var tpl2 = EmailTemplates.adRejected(rejAd.user_name, rejAd.title, fullReason);
+      sendEmail(rejAd.user_email, tpl2.subject, tpl2.html);
+      Notifs.add(rejAd.user_email, 'ad_rejected', '❌ Oglas odbijen', 'Tvoj oglas "' + rejAd.title + '" nije odobren. Razlog: ' + fullReason, 'profil.html');
+    }
+    showToast('Oglas odbijen. Email poslat.', 'info');
+    await loadAllAds();
+    renderStats();
+    renderAds(allAds[currentTab]);
+  } catch(e) { showToast('Greška: ' + e.message, 'error'); }
+}
+
+function openAdLightbox(photos, idx) {
+  openLightbox(photos, idx);
+}
+
+// Close reject modal on backdrop click
+document.getElementById('rejectModalWrap').addEventListener('click', function(e) {
+  if (e.target === this) closeRejectModal();
+});
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeRejectModal(); });
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

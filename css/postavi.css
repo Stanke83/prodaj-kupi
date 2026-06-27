@@ -1,0 +1,2 @@
+/* postavi.css — kept minimal since style.css has all post-page styles */
+.checkbox-option--block:has(input:checked){border-color:var(--green);background:var(--green-light)}

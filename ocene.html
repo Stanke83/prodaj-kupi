@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Ocene — ProdajKupi</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1a8f4b"/>
+  <link rel="stylesheet" href="css/ocene.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+<header class="header">
+  <div class="header__top">
+    <div class="header__top-inner">
+      <a href="index.html" class="logo"><span class="logo__prodaj">Prodaj</span><span class="logo__kupi">Kupi</span></a>
+      <div class="header__actions" id="headerActions"></div>
+    </div>
+  </div>
+</header>
+
+<div class="reviews-page">
+  <aside class="reviews-sidebar" id="reviewsSidebar">
+    <div style="padding:40px 20px;color:rgba(255,255,255,.5);text-align:center">⏳ Učitavanje...</div>
+  </aside>
+  <main class="reviews-main">
+    <div class="reviews-header-box">
+      <h2 id="reviewsHeading">Ocene</h2>
+      <div class="score-pills" id="scorePills"></div>
+      <div class="verified-row" id="verifiedRow"></div>
+      <div class="reviews-tabs" id="reviewsTabs">
+        <button class="rtab active" onclick="switchTab('all',this)">Sve ocene</button>
+        <button class="rtab" onclick="switchTab('prodavac',this)">Kao prodavac</button>
+        <button class="rtab" onclick="switchTab('kupac',this)">Kao kupac</button>
+      </div>
+    </div>
+    <div id="reviewsList"></div>
+    <div class="empty-state" id="reviewsEmpty" style="display:none">
+      <div class="empty-state__icon">💬</div>
+      <h3>Nema ocena</h3>
+      <p>Ovaj korisnik još uvek nema ocena.</p>
+    </div>
+  </main>
+</div>
+
+<!-- LEAVE REVIEW MODAL -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal modal--wide">
+    <button class="modal__close" onclick="closeModal('reviewModal')">✕</button>
+    <h2>Ostavi ocenu</h2>
+    <p class="modal__sub" id="reviewModalSub"></p>
+    <div class="review-type-pick">
+      <label class="review-type-btn" id="btnPositive">
+        <input type="radio" name="reviewType" value="positive" checked onchange="updateTypeStyle()"/>
+        <span>👍 Pozitivna</span>
+      </label>
+      <label class="review-type-btn" id="btnNegative">
+        <input type="radio" name="reviewType" value="negative" onchange="updateTypeStyle()"/>
+        <span>👎 Negativna</span>
+      </label>
+    </div>
+    <div class="review-role-pick">
+      <label class="review-role-btn"><input type="radio" name="reviewRole" value="prodavac" checked/><span>Kao prodavac</span></label>
+      <label class="review-role-btn"><input type="radio" name="reviewRole" value="kupac"/><span>Kao kupac</span></label>
+    </div>
+    <div class="review-checks">
+      <label class="checkbox-option"><input type="checkbox" id="chkPayment" checked/><span>Plaćanje/zamena po dogovoru</span></label>
+      <label class="checkbox-option"><input type="checkbox" id="chkComm" checked/><span>Komunikacija protekla dobro</span></label>
+      <label class="checkbox-option"><input type="checkbox" id="chkDeal" checked/><span>Ispoštovan dogovor</span></label>
+    </div>
+    <div class="form-group" style="margin-top:16px">
+      <label>Komentar <span class="req">*</span></label>
+      <textarea id="reviewComment" rows="4" maxlength="500" placeholder="Opiši iskustvo sa ovim korisnikom..."></textarea>
+      <div class="input-hint"><span id="reviewCommentCount">0</span>/500</div>
+    </div>
+    <div id="reviewError" class="form-error"></div>
+    <button class="btn btn--primary btn--full" id="reviewSubmitBtn" onclick="submitReview()">Pošalji ocenu</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/header.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/google-auth.js"></script>
+<script>
+var profileEmail = null;
+var allReviews   = [];
+var currentTab   = 'all';
+var pendingAdId  = null;
+var pendingAdTitle = null;
+
+function init() {
+  renderHeader();
+  var params = new URLSearchParams(window.location.search);
+  profileEmail   = params.get('user');
+  pendingAdId    = params.get('adId') || null;
+  pendingAdTitle = params.get('adTitle') || null;
+
+  var me = SESSION.get();
+  if (!profileEmail) {
+    if (me) profileEmail = me.email;
+    else { window.location.href = 'index.html'; return; }
+  }
+
+  // Učitaj korisnika i ocene paralelno
+  Promise.all([
+    SB.getUserByEmail(profileEmail),
+    SB.getReviews(profileEmail)
+  ]).then(function(results) {
+    var users   = results[0] || [];
+    var reviews = results[1] || [];
+    var profileUser = users[0] || { name: profileEmail, email: profileEmail };
+    allReviews = reviews;
+
+    renderSidebar(profileUser, me);
+    renderScores(reviews);
+    renderReviews('all');
+
+    if (pendingAdId && me && me.email !== profileEmail) {
+      openLeaveReview(profileUser);
+    }
+  }).catch(function(e) {
+    showToast('Greška: ' + e.message, 'error');
+  });
+
+  document.getElementById('reviewComment').addEventListener('input', function() {
+    document.getElementById('reviewCommentCount').textContent = this.value.length;
+  });
+  document.getElementById('reviewModal').addEventListener('click', function(e) {
+    if (e.target.id === 'reviewModal') closeModal('reviewModal');
+  });
+}
+
+function renderSidebar(profileUser, me) {
+  var isMe = me && me.email === profileEmail;
+  var pos  = allReviews.filter(function(r){return r.type==='positive';}).length;
+  var neg  = allReviews.filter(function(r){return r.type==='negative';}).length;
+  var initial = (profileUser.name||'?').charAt(0).toUpperCase();
+
+  document.getElementById('reviewsSidebar').innerHTML =
+    '<div class="rsidebar-profile">' +
+      '<div class="rsidebar-avatar">' + escHtml(initial) + '</div>' +
+      '<div class="rsidebar-name">' + escHtml(profileUser.name) + '</div>' +
+      '<div class="rsidebar-email">' + escHtml(profileUser.email) + '</div>' +
+      (profileUser.city ? '<div class="rsidebar-city">📍 ' + escHtml(profileUser.city) + '</div>' : '') +
+    '</div>' +
+    '<nav class="rsidebar-nav">' +
+      '<a href="pretraga.html?userEmail=' + encodeURIComponent(profileEmail) + '"><span>📋</span> Oglasi</a>' +
+      '<a href="ocene.html?user=' + encodeURIComponent(profileEmail) + '" class="active"><span>👍</span> Ocene' +
+        '<span class="rsidebar-badge rsidebar-badge--pos">' + pos + '</span>' +
+      '</a>' +
+    '</nav>' +
+    (!isMe && me
+      ? '<div class="rsidebar-action"><button class="btn btn--primary btn--full btn--sm" onclick="openLeaveReview()">✍️ Ostavi ocenu</button></div>'
+      : '');
+}
+
+function renderScores(reviews) {
+  var pos = reviews.filter(function(r){return r.type==='positive';}).length;
+  var neg = reviews.filter(function(r){return r.type==='negative';}).length;
+  var pct = reviews.length ? Math.round(pos/reviews.length*100) : 0;
+
+  document.getElementById('scorePills').innerHTML =
+    '<div class="score-pill score-pill--pos"><span class="score-pill__icon">👍</span><span class="score-pill__num">' + pos + '</span></div>' +
+    '<div class="score-pill score-pill--neg"><span class="score-pill__icon">👎</span><span class="score-pill__num">' + neg + '</span></div>';
+
+  document.getElementById('verifiedRow').innerHTML =
+    '<div class="verified-box">' +
+      '<div class="verified-icon">✅</div>' +
+      '<div>' +
+        '<div class="verified-title"><strong>' + reviews.length + ' ocena</strong> ukupno</div>' +
+        '<div class="verified-sub">' + pct + '% pozitivnih · ' +
+          reviews.filter(function(r){return r.role==='prodavac';}).length + ' kao prodavac · ' +
+          reviews.filter(function(r){return r.role==='kupac';}).length + ' kao kupac' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.rtab').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  renderReviews(tab);
+}
+
+function renderReviews(tab) {
+  var reviews = allReviews.slice();
+  if (tab === 'prodavac') reviews = reviews.filter(function(r){return r.role==='prodavac';});
+  if (tab === 'kupac')    reviews = reviews.filter(function(r){return r.role==='kupac';});
+
+  var list  = document.getElementById('reviewsList');
+  var empty = document.getElementById('reviewsEmpty');
+  if (!reviews.length) { list.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  list.innerHTML = reviews.map(function(r) {
+    var date = new Date(r.created_at).toLocaleDateString('sr-RS',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'.');
+    var checks = [];
+    if (r.payment)       checks.push('✅ Plaćanje po dogovoru');
+    if (r.communication) checks.push('✅ Komunikacija dobra');
+    if (r.deal)          checks.push('✅ Dogovor ispoštovan');
+
+    return '<div class="review-card review-card--' + r.type + '">' +
+      '<div class="review-card__header">' +
+        '<div class="review-card__from">' +
+          '<div class="review-card__avatar">' + escHtml((r.from_name||'?').charAt(0).toUpperCase()) + '</div>' +
+          '<div>' +
+            '<div class="review-card__name">' + escHtml(r.from_name) + '</div>' +
+            '<div class="review-card__role">' + (r.role==='prodavac'?'ocenio kao prodavca':'ocenio kao kupca') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="review-card__meta">' +
+          '<span class="review-badge review-badge--' + r.type + '">' + (r.type==='positive'?'👍 Pozitivna':'👎 Negativna') + '</span>' +
+          '<span class="review-card__date">' + date + '</span>' +
+        '</div>' +
+      '</div>' +
+      (r.ad_title ? '<div class="review-card__ad">🔗 ' + escHtml(r.ad_title) + '</div>' : '') +
+      (checks.length ? '<div class="review-card__checks">' + checks.map(function(c){return '<span>'+c+'</span>';}).join('') + '</div>' : '') +
+      '<div class="review-card__comment">' + escHtml(r.comment) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openLeaveReview() {
+  var me = SESSION.get();
+  if (!me) { openLoginModal(); return; }
+  if (me.email === profileEmail) { showToast('Ne možeš oceniti samog sebe.','error'); return; }
+  document.getElementById('reviewModalSub').textContent =
+    'Ocenjuješ korisnika: ' + profileEmail + (pendingAdTitle ? ' · oglas: ' + pendingAdTitle : '');
+  updateTypeStyle();
+  openModal('reviewModal');
+}
+
+function updateTypeStyle() {
+  var val = (document.querySelector('input[name="reviewType"]:checked')||{}).value;
+  document.getElementById('btnPositive').classList.toggle('selected--pos', val==='positive');
+  document.getElementById('btnNegative').classList.toggle('selected--neg', val==='negative');
+}
+
+function submitReview() {
+  var me = SESSION.get();
+  if (!me) { openLoginModal(); return; }
+
+  var type    = (document.querySelector('input[name="reviewType"]:checked')||{}).value || 'positive';
+  var role    = (document.querySelector('input[name="reviewRole"]:checked')||{}).value || 'prodavac';
+  var comment = document.getElementById('reviewComment').value.trim();
+  var err     = document.getElementById('reviewError');
+  err.textContent = '';
+
+  if (!comment)          { err.textContent = 'Komentar je obavezan.'; return; }
+  if (comment.length<10) { err.textContent = 'Komentar mora imati min. 10 karaktera.'; return; }
+
+  var btn = document.getElementById('reviewSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ Slanje...';
+
+  SB.hasReviewed(me.email, pendingAdId || 'manual').then(function(already) {
+    if (already) throw new Error('Već si ostavio/la ocenu za ovaj oglas.');
+    return SB.insertReview({
+      from_email:     me.email,
+      from_name:      me.name,
+      to_email:       profileEmail,
+      ad_id:          pendingAdId || 'manual_' + Date.now(),
+      ad_title:       pendingAdTitle || '',
+      type:           type,
+      role:           role,
+      payment:        document.getElementById('chkPayment').checked,
+      communication:  document.getElementById('chkComm').checked,
+      deal:           document.getElementById('chkDeal').checked,
+      comment:        comment
+    });
+  }).then(function() {
+    closeModal('reviewModal');
+    showToast('Ocena je poslata! ✅');
+    // Refresh
+    return SB.getReviews(profileEmail);
+  }).then(function(reviews) {
+    allReviews = reviews || [];
+    renderScores(allReviews);
+    renderReviews(currentTab);
+    document.getElementById('reviewComment').value = '';
+    document.getElementById('reviewCommentCount').textContent = '0';
+  }).catch(function(e) {
+    err.textContent = e.message;
+  }).finally(function() {
+    btn.disabled = false; btn.textContent = 'Pošalji ocenu';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

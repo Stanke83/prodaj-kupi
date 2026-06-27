@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Pretraga — ProdajKupi</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1a8f4b"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+<header class="header">
+  <div class="header__top">
+    <div class="header__top-inner">
+      <a href="index.html" class="logo"><span class="logo__prodaj">Prodaj</span><span class="logo__kupi">Kupi</span></a>
+      <div class="search-bar">
+        <input type="text" id="searchInput" class="search-bar__input" placeholder="Pretraži oglase..."/>
+        <select id="searchCategory" class="search-bar__select"><option value="">Sve kategorije</option></select>
+        <button class="search-bar__btn" onclick="doSearch()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Pretraži
+        </button>
+      </div>
+      <div class="header__actions" id="headerActions"></div>
+    </div>
+  </div>
+</header>
+
+<main class="search-page">
+  <div class="container">
+    <div class="search-layout">
+      <aside class="search-sidebar">
+        <h3>🔎 Filteri</h3>
+        <div class="sidebar-filter"><label>Kategorija</label><select id="fCat" onchange="doSearch()"><option value="">Sve kategorije</option></select></div>
+        <div class="sidebar-filter"><label>Grad</label><select id="fCity" onchange="doSearch()"><option value="">Svi gradovi</option></select></div>
+        <div class="sidebar-filter"><label>Stanje</label>
+          <select id="fCondition" onchange="doSearch()">
+            <option value="">Sve</option><option>Novo</option><option>Kao novo</option><option>Polovno</option><option>Oštećeno</option>
+          </select>
+        </div>
+        <div class="sidebar-filter"><label>Cena (RSD)</label>
+          <div class="filter-price-row">
+            <input type="number" id="fMinPrice" placeholder="Od" min="0" oninput="doSearchDebounced()"/>
+            <span>—</span>
+            <input type="number" id="fMaxPrice" placeholder="Do" min="0" oninput="doSearchDebounced()"/>
+          </div>
+        </div>
+        <button class="btn btn--gray btn--full btn--sm" onclick="resetFilters()">Resetuj filtere</button>
+      </aside>
+      <div>
+        <div class="sort-bar">
+          <span class="sort-bar__info" id="resultInfo">Učitavanje...</span>
+          <select id="fSort" onchange="doSearch()">
+            <option value="newest">Najnoviji</option>
+            <option value="price_asc">Cena: niža → viša</option>
+            <option value="price_desc">Cena: viša → niža</option>
+          </select>
+        </div>
+        <div class="listings__grid" id="resultsGrid"></div>
+        <div class="empty-state" id="emptyState" style="display:none">
+          <div class="empty-state__icon">🔍</div>
+          <h3>Nema rezultata</h3>
+          <p>Pokušaj sa drugačijim filterima.</p>
+          <button class="btn btn--outline" onclick="resetFilters()">Resetuj filtere</button>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="modal-overlay" id="detailModal"><div class="modal modal--wide" id="detailContent"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/header.js"></script>
+<script src="js/shared.js"></script>
+<script src="js/photos.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/google-auth.js"></script>
+<script>
+var currentPage = 1;
+var debTimer;
+
+ALL_CATS.forEach(function(c){
+  [document.getElementById('searchCategory'),document.getElementById('fCat')].forEach(function(s){
+    s.insertAdjacentHTML('beforeend','<option value="'+c+'">'+c+'</option>');
+  });
+});
+ALL_CITIES.forEach(function(c){
+  document.getElementById('fCity').insertAdjacentHTML('beforeend','<option value="'+c+'">'+c+'</option>');
+});
+
+function readParams() {
+  var p = new URLSearchParams(window.location.search);
+  if (p.get('q'))   { document.getElementById('searchInput').value = p.get('q'); }
+  if (p.get('cat')) { document.getElementById('fCat').value = p.get('cat'); document.getElementById('searchCategory').value = p.get('cat'); }
+  if (p.get('city')){ document.getElementById('fCity').value = p.get('city'); }
+}
+
+function getFilters() {
+  return {
+    search:    document.getElementById('searchInput').value.trim(),
+    category:  document.getElementById('fCat').value,
+    city:      document.getElementById('fCity').value,
+    condition: document.getElementById('fCondition').value,
+    minPrice:  document.getElementById('fMinPrice').value || null,
+    maxPrice:  document.getElementById('fMaxPrice').value || null,
+    sort:      document.getElementById('fSort').value,
+    page:      currentPage,
+    perPage:   16,
+  };
+}
+
+function doSearch() { currentPage = 1; renderResults(); }
+function doSearchDebounced() { clearTimeout(debTimer); debTimer = setTimeout(doSearch, 500); }
+function resetFilters() {
+  ['fCat','fCity','fCondition','fSort'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['fMinPrice','fMaxPrice'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('searchInput').value='';
+  document.getElementById('searchCategory').value='';
+  currentPage=1; renderResults();
+}
+
+function renderResults() {
+  document.getElementById('resultInfo').textContent = '⏳ Pretraga...';
+  document.getElementById('resultsGrid').innerHTML = '';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('pagination').innerHTML = '';
+
+  var filters = getFilters();
+  SB.getAds(filters).then(function(ads) {
+    ads = ads || [];
+    var q = filters.search ? ' za "'+filters.search+'"' : '';
+    document.getElementById('resultInfo').innerHTML = '<strong>'+ads.length+'</strong> oglasa'+q+(ads.length===16?' +':'');
+
+    if (!ads.length) { document.getElementById('emptyState').style.display='block'; return; }
+    document.getElementById('resultsGrid').innerHTML = ads.map(function(ad){ return adCard(ad); }).join('');
+
+    // Paginacija — ako je vraćeno 16, ima još
+    var pag = document.getElementById('pagination');
+    var prevBtn = currentPage > 1
+      ? '<button class="pagination__btn" onclick="goPage('+(currentPage-1)+')">‹ Prethodna</button>' : '';
+    var nextBtn = ads.length === 16
+      ? '<button class="pagination__btn" onclick="goPage('+(currentPage+1)+')">Sledeća ›</button>' : '';
+    var cur = '<button class="pagination__btn active">'+currentPage+'</button>';
+    pag.innerHTML = prevBtn + cur + nextBtn;
+  }).catch(function(e){
+    document.getElementById('resultInfo').textContent = 'Greška: ' + e.message;
+  });
+}
+
+function goPage(p) {
+  currentPage = p;
+  renderResults();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.getElementById('detailModal').addEventListener('click',function(e){if(e.target.id==='detailModal')closeModal('detailModal');});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal('detailModal');});
+document.getElementById('searchInput').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch();});
+document.getElementById('searchCategory').addEventListener('change',function(){document.getElementById('fCat').value=this.value;doSearch();});
+
+document.addEventListener('DOMContentLoaded',function(){ renderHeader(); readParams(); renderResults(); });
+</script>
+</body>
+</html>

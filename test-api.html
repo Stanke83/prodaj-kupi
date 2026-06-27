@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>API Test</title>
+<style>
+  body{font-family:monospace;padding:20px;background:#1a1a1a;color:#eee}
+  .ok{color:#4ade80} .err{color:#f87171} .info{color:#93c5fd}
+  pre{background:#111;padding:10px;border-radius:6px;overflow:auto;font-size:12px}
+  button{background:#1a8f4b;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin:4px}
+</style>
+</head>
+<body>
+<h2>🔍 Supabase API Dijagnostika</h2>
+<div id="out"></div>
+<button onclick="runAll()">▶ Pokreni sve testove</button>
+
+<script>
+var SB_URL = 'https://iyuyhbgampbwkxlbdgvi.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5dXloYmdhbXBid2t4bGJkZ3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDMwOTAsImV4cCI6MjA5NzU3OTA5MH0.28-mt9G-lMDr35ijigo2f5IiYrzcBZAF0Rf4Y9L4DUA';
+
+var out = document.getElementById('out');
+
+function log(msg, cls) {
+  out.innerHTML += '<p class="' + (cls||'info') + '">' + msg + '</p>';
+}
+function logPre(data) {
+  out.innerHTML += '<pre>' + JSON.stringify(data, null, 2).slice(0,500) + '</pre>';
+}
+
+async function test(name, url, headers) {
+  log('▶ Test: ' + name);
+  try {
+    var r = await fetch(url, { headers: headers, mode: 'cors', credentials: 'omit' });
+    log('  HTTP status: ' + r.status + ' ' + r.statusText, r.ok ? 'ok' : 'err');
+    var text = await r.text();
+    try { logPre(JSON.parse(text)); } catch(e) { log('  Response: ' + text.slice(0,200), 'err'); }
+  } catch(e) {
+    log('  ❌ FETCH GREŠKA: ' + e.message, 'err');
+    log('  (Ovo znači CORS blokada ili network problem)', 'err');
+  }
+}
+
+async function runAll() {
+  out.innerHTML = '';
+  var h = {
+    'apikey': SB_KEY,
+    'Authorization': 'Bearer ' + SB_KEY,
+    'Content-Type': 'application/json'
+  };
+
+  // Test 1: Basic connectivity
+  await test('Supabase ping (health)', SB_URL + '/rest/v1/', h);
+
+  // Test 2: ads table
+  await test('ads tabela (limit 1)', SB_URL + '/rest/v1/ads?limit=1&select=id,title,status', h);
+
+  // Test 3: ads without status filter
+  await test('ads tabela (svi statusi)', SB_URL + '/rest/v1/ads?limit=3', h);
+
+  // Test 4: check RLS
+  await test('ads count', SB_URL + '/rest/v1/ads?select=count', {
+    ...h, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0'
+  });
+
+  log('✅ Dijagnostika završena', 'ok');
+}
+
+runAll();
+</script>
+</body>
+</html>

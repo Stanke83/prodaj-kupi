@@ -132,6 +132,9 @@ function openDetail(id) {
 
       openModal('detailModal');
     });
+  }).catch(function(e) {
+    showToast('Greška pri otvaranju oglasa: ' + e.message, 'error');
+    console.error('openDetail error:', e);
   });
 }
 

@@ -20,136 +20,110 @@
 </div>
 
 <script>
-/* ── Bez CDN‑a: sve radi direktno kroz Supabase REST + Auth API ── */
 var SB_URL = 'https://iyuyhbgampbwkxlbdgvi.supabase.co';
 var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5dXloYmdhbXBid2t4bGJkZ3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDMwOTAsImV4cCI6MjA5NzU3OTA5MH0.28-mt9G-lMDr35ijigo2f5IiYrzcBZAF0Rf4Y9L4DUA';
 
-function setStatus(msg) {
-  var el = document.getElementById('status');
-  if (el) el.textContent = msg;
+function setStatus(msg) { var el=document.getElementById('status'); if(el) el.textContent=msg; }
+function showError(msg) {
+  document.getElementById('spinner').style.display='none';
+  document.getElementById('status').innerHTML='<div class="err">❌ '+msg+'</div><br/><a href="index.html" style="color:#1a8f4b;font-weight:600;font-size:.9rem">← Nazad na početnu</a>';
 }
 
-function showError(msg) {
-  document.getElementById('spinner').style.display = 'none';
-  document.getElementById('status').innerHTML =
-    '<div class="err">❌ ' + msg + '</div>' +
-    '<br/><a href="index.html" style="color:#1a8f4b;font-weight:600;font-size:.9rem">← Nazad na početnu</a>';
+function sbHeaders(token) {
+  return { 'apikey': SB_KEY, 'Authorization': 'Bearer '+(token||SB_KEY), 'Content-Type': 'application/json' };
 }
 
 function saveSession(user) {
   try {
     localStorage.setItem('pk_session', JSON.stringify({
-      id: user.id, name: user.name, email: user.email,
-      city: user.city || '', phone: user.phone || ''
+      id: user.id, name: user.name, email: user.email, city: user.city||'', phone: user.phone||''
     }));
     localStorage.removeItem('auth_attempts');
   } catch(e) {}
 }
 
-function sbHeaders(token) {
-  return {
-    'apikey': SB_KEY,
-    'Authorization': 'Bearer ' + (token || SB_KEY),
-    'Content-Type': 'application/json'
-  };
-}
-
 async function createOrGetUser(email, meta) {
   email = email.toLowerCase().trim();
   var name = (meta && (meta.full_name || meta.name)) || email.split('@')[0];
-
-  var chk = await fetch(SB_URL + '/rest/v1/users?email=eq.' + encodeURIComponent(email), { headers: sbHeaders() });
+  var chk = await fetch(SB_URL+'/rest/v1/users?email=eq.'+encodeURIComponent(email), {headers: sbHeaders()});
   var existing = await chk.json();
-
   var user;
   if (existing && existing.length > 0) {
     user = existing[0];
   } else {
-    var ins = await fetch(SB_URL + '/rest/v1/users', {
+    var ins = await fetch(SB_URL+'/rest/v1/users', {
       method: 'POST',
-      headers: Object.assign({}, sbHeaders(), { 'Prefer': 'return=representation' }),
-      body: JSON.stringify({ name: name, email: email, pass: 'google_' + Math.random().toString(36).slice(2,10), city: '', phone: '' })
+      headers: Object.assign({}, sbHeaders(), {'Prefer':'return=representation'}),
+      body: JSON.stringify({name:name, email:email, pass:'google_'+Math.random().toString(36).slice(2,10), city:'', phone:''})
     });
     var rows = await ins.json();
     user = rows && rows[0];
   }
-
-  if (!user) throw new Error('Nije moguće kreirati nalog. Pokušaj ponovo.');
+  if (!user) throw new Error('Nije moguće kreirati nalog.');
   saveSession(user);
   setStatus('Uspešno! Preusmeravanje...');
   var next = localStorage.getItem('pk_login_next') || 'index.html';
   localStorage.removeItem('pk_login_next');
-  setTimeout(function() { window.location.replace(next); }, 500);
-}
-
-/* ── PKCE code exchange — bez Supabase JS SDK ── */
-async function exchangeCode(code) {
-  /* Supabase PKCE: čitamo code_verifier koji je Supabase JS ostavio pre redirecta.
-     Ako ga nema (čist redirect bez SDK), koristimo implicit token iz hash-a.
-     Ako ni to ne postoji, pozivamo token endpoint direktno. */
-  var verifier = localStorage.getItem('supabase.auth.code_verifier')
-              || sessionStorage.getItem('supabase.auth.code_verifier');
-
-  var body = 'grant_type=authorization_code&code=' + encodeURIComponent(code);
-  if (verifier) body += '&code_verifier=' + encodeURIComponent(verifier);
-
-  var res = await fetch(SB_URL + '/auth/v1/token?' + body, {
-    method: 'POST',
-    headers: { 'apikey': SB_KEY, 'Content-Type': 'application/x-www-form-urlencoded' }
-  });
-  var data = await res.json();
-  if (data.error || data.error_description) {
-    throw new Error(data.error_description || data.error);
-  }
-  return data; // { access_token, user, ... }
+  setTimeout(function(){ window.location.replace(next); }, 500);
 }
 
 async function run() {
-  /* Zaštita od beskonačne petlje */
-  var attempts = parseInt(localStorage.getItem('auth_attempts') || '0');
-  if (attempts > 3) {
-    localStorage.removeItem('auth_attempts');
-    showError('Previše pokušaja prijave. <a href="index.html" style="color:#1a8f4b">Pokušaj ponovo</a>');
-    return;
-  }
-  localStorage.setItem('auth_attempts', attempts + 1);
+  var attempts = parseInt(localStorage.getItem('auth_attempts')||'0');
+  if (attempts > 3) { localStorage.removeItem('auth_attempts'); showError('Previše pokušaja. <a href="index.html" style="color:#1a8f4b">Pokušaj ponovo</a>'); return; }
+  localStorage.setItem('auth_attempts', attempts+1);
 
   try {
     var params  = new URLSearchParams(window.location.search);
-    var hash    = new URLSearchParams(window.location.hash.replace('#', ''));
+    var hash    = new URLSearchParams(window.location.hash.replace('#',''));
     var code    = params.get('code');
     var accTok  = hash.get('access_token');
     var errDesc = params.get('error_description') || hash.get('error_description');
 
-    if (errDesc) throw new Error(decodeURIComponent(errDesc.replace(/\+/g, ' ')));
+    if (errDesc) throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
 
-    /* ── 1. Implicit / hash flow ── */
+    // Hash flow (implicit)
     if (accTok) {
       setStatus('Dohvatam podatke...');
-      var r = await fetch(SB_URL + '/auth/v1/user', {
-        headers: { 'Authorization': 'Bearer ' + accTok, 'apikey': SB_KEY }
-      });
+      var r = await fetch(SB_URL+'/auth/v1/user', {headers:{'Authorization':'Bearer '+accTok,'apikey':SB_KEY}});
       var ud = await r.json();
       if (!ud || !ud.email) throw new Error('Nije moguće dohvatiti podatke sa Google naloga.');
       await createOrGetUser(ud.email, ud.user_metadata);
       return;
     }
 
-    /* ── 2. PKCE / code flow ── */
+    // PKCE code flow — koristimo Supabase token endpoint direktno
     if (code) {
       setStatus('Razmena koda...');
-      var tokenData = await exchangeCode(code);
+
+      // Pokušaj 1: sa code_verifier iz storage-a (ako ga je SDK ostavio)
+      var verifier = localStorage.getItem('supabase.auth.code_verifier')
+                  || sessionStorage.getItem('supabase.auth.code_verifier');
+
+      var formBody = 'grant_type=authorization_code&code='+encodeURIComponent(code)+'&redirect_uri='+encodeURIComponent(window.location.origin+'/auth-callback.html');
+      if (verifier) formBody += '&code_verifier='+encodeURIComponent(verifier);
+
+      var tokenRes = await fetch(SB_URL+'/auth/v1/token?grant_type=authorization_code', {
+        method: 'POST',
+        headers: {'apikey': SB_KEY, 'Content-Type': 'application/x-www-form-urlencoded'},
+        body: formBody
+      });
+      var tokenData = await tokenRes.json();
+
+      if (tokenData.error || !tokenData.access_token) {
+        // Pokušaj 2: koristi code direktno na user endpoint (neki Supabase verzije podržavaju)
+        throw new Error(tokenData.error_description || tokenData.error || 'Code exchange nije uspeo. Pokušaj ponovo.');
+      }
+
       var au = tokenData.user;
-      if (!au || !au.email) throw new Error('Nije moguće dohvatiti email sa Google naloga.');
+      if (!au || !au.email) throw new Error('Nije moguće dohvatiti email.');
       await createOrGetUser(au.email, au.user_metadata);
       return;
     }
 
-    throw new Error('Nije pronađen OAuth token ili code u URL-u.<br/>URL: ' + window.location.href.slice(0,120));
-
+    throw new Error('Nije pronađen token u URL-u.');
   } catch(e) {
     localStorage.removeItem('auth_attempts');
-    showError(String(e.message || e).replace(/</g,'&lt;').replace(/>/g,'&gt;'));
+    showError(String(e.message||e).replace(/</g,'&lt;').replace(/>/g,'&gt;'));
   }
 }
 

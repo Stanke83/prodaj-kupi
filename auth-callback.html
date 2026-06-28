@@ -19,6 +19,7 @@
   <p style="color:#6b7280;font-size:.9rem" id="status">Obrađujemo tvoj Google nalog.</p>
 </div>
 
+<script src="/js/vendor/supabase.min.js"></script>
 <script>
 var SB_URL = 'https://iyuyhbgampbwkxlbdgvi.supabase.co';
 var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5dXloYmdhbXBid2t4bGJkZ3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDMwOTAsImV4cCI6MjA5NzU3OTA5MH0.28-mt9G-lMDr35ijigo2f5IiYrzcBZAF0Rf4Y9L4DUA';
@@ -42,7 +43,6 @@ async function createOrGetUser(email, meta) {
   email = email.toLowerCase().trim();
   var name = (meta && (meta.full_name || meta.name)) || email.split('@')[0];
   var headers = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-
   var chk = await fetch(SB_URL+'/rest/v1/users?email=eq.'+encodeURIComponent(email), {headers:headers});
   var existing = await chk.json();
   var user;
@@ -65,32 +65,6 @@ async function createOrGetUser(email, meta) {
   setTimeout(function(){ window.location.replace(next); }, 600);
 }
 
-async function handleWithSDK(code) {
-  setStatus('Učitavam auth modul...');
-  // Dinamički učitaj Supabase SDK sa unpkg (alternativni CDN)
-  return new Promise(function(resolve, reject) {
-    var script = document.createElement('script');
-    script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
-    script.onload = async function() {
-      try {
-        setStatus('Razmena koda...');
-        var client = supabase.createClient(SB_URL, SB_KEY, {
-          auth: { detectSessionInUrl: true, persistSession: false, flowType: 'pkce' }
-        });
-        var result = await client.auth.exchangeCodeForSession(window.location.href);
-        if (result.error) throw new Error(result.error.message);
-        var u = result.data && result.data.user;
-        if (!u || !u.email) throw new Error('Nije moguće dohvatiti email.');
-        resolve(u);
-      } catch(e) { reject(e); }
-    };
-    script.onerror = function() {
-      reject(new Error('Ne mogu da učitam auth modul. Proveri internet vezu ili uBlock podešavanja.'));
-    };
-    document.head.appendChild(script);
-  });
-}
-
 async function run() {
   var attempts = parseInt(localStorage.getItem('auth_attempts')||'0');
   if (attempts > 3) {
@@ -109,7 +83,7 @@ async function run() {
 
     if (errDesc) throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
 
-    // Implicit flow (hash)
+    // Implicit flow
     if (accTok) {
       setStatus('Dohvatam podatke...');
       var r = await fetch(SB_URL+'/auth/v1/user', {
@@ -121,10 +95,17 @@ async function run() {
       return;
     }
 
-    // PKCE flow (code) — koristimo SDK dinamički
+    // PKCE flow — koristimo lokalni SDK
     if (code) {
-      var authUser = await handleWithSDK(code);
-      await createOrGetUser(authUser.email, authUser.user_metadata);
+      setStatus('Razmena koda...');
+      var client = supabase.createClient(SB_URL, SB_KEY, {
+        auth: { flowType: 'pkce', detectSessionInUrl: false, persistSession: false }
+      });
+      var result = await client.auth.exchangeCodeForSession(window.location.href);
+      if (result.error) throw new Error(result.error.message);
+      var u = result.data && result.data.user;
+      if (!u || !u.email) throw new Error('Nije moguće dohvatiti email.');
+      await createOrGetUser(u.email, u.user_metadata);
       return;
     }
 

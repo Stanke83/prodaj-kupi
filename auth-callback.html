@@ -18,8 +18,6 @@
   <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:8px">Prijava u toku...</h2>
   <p style="color:#6b7280;font-size:.9rem" id="status">Obrađujemo tvoj Google nalog.</p>
 </div>
-
-<script src="/js/vendor/supabase.min.js"></script>
 <script>
 var SB_URL = 'https://iyuyhbgampbwkxlbdgvi.supabase.co';
 var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5dXloYmdhbXBid2t4bGJkZ3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDMwOTAsImV4cCI6MjA5NzU3OTA5MH0.28-mt9G-lMDr35ijigo2f5IiYrzcBZAF0Rf4Y9L4DUA';
@@ -28,15 +26,6 @@ function setStatus(msg) { var el=document.getElementById('status'); if(el) el.te
 function showError(msg) {
   document.getElementById('spinner').style.display='none';
   document.getElementById('status').innerHTML='<div class="err">❌ '+msg+'</div><br/><a href="index.html" style="color:#1a8f4b;font-weight:600;font-size:.9rem">← Nazad na početnu</a>';
-}
-
-function saveSession(user) {
-  try {
-    localStorage.setItem('pk_session', JSON.stringify({
-      id: user.id, name: user.name, email: user.email, city: user.city||'', phone: user.phone||''
-    }));
-    localStorage.removeItem('auth_attempts');
-  } catch(e) {}
 }
 
 async function createOrGetUser(email, meta) {
@@ -58,21 +47,26 @@ async function createOrGetUser(email, meta) {
     user = rows && rows[0];
   }
   if (!user) throw new Error('Nije moguće kreirati nalog.');
-  saveSession(user);
+  localStorage.setItem('pk_session', JSON.stringify({
+    id:user.id, name:user.name, email:user.email, city:user.city||'', phone:user.phone||''
+  }));
   setStatus('Uspešno! Preusmeravanje...');
   var next = localStorage.getItem('pk_login_next') || 'index.html';
   localStorage.removeItem('pk_login_next');
+  localStorage.removeItem('pkce_verifier');
+  localStorage.removeItem('auth_attempts');
   setTimeout(function(){ window.location.replace(next); }, 600);
 }
 
 async function run() {
+  // Zaštita od petlje
   var attempts = parseInt(localStorage.getItem('auth_attempts')||'0');
-  if (attempts > 3) {
+  if (attempts > 2) {
     localStorage.removeItem('auth_attempts');
     showError('Previše pokušaja. <a href="index.html" style="color:#1a8f4b">Pokušaj ponovo</a>');
     return;
   }
-  localStorage.setItem('auth_attempts', attempts+1);
+  localStorage.setItem('auth_attempts', attempts + 1);
 
   try {
     var params  = new URLSearchParams(window.location.search);
@@ -83,7 +77,7 @@ async function run() {
 
     if (errDesc) throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
 
-    // Implicit flow
+    // Implicit flow (hash token)
     if (accTok) {
       setStatus('Dohvatam podatke...');
       var r = await fetch(SB_URL+'/auth/v1/user', {
@@ -95,21 +89,40 @@ async function run() {
       return;
     }
 
-    // PKCE flow — koristimo lokalni SDK
+    // PKCE flow — ručni exchange sa našim verifierom
     if (code) {
       setStatus('Razmena koda...');
-      var client = supabase.createClient(SB_URL, SB_KEY, {
-        auth: { flowType: 'pkce', detectSessionInUrl: false, persistSession: false }
+      var verifier = localStorage.getItem('pkce_verifier');
+      if (!verifier) throw new Error('PKCE verifier nije pronađen. Pokušaj da se prijaviš ponovo.');
+
+      var body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        code_verifier: verifier,
+        redirect_uri: window.location.origin + '/auth-callback.html'
       });
-      var result = await client.auth.exchangeCodeForSession(window.location.href);
-      if (result.error) throw new Error(result.error.message);
-      var u = result.data && result.data.user;
-      if (!u || !u.email) throw new Error('Nije moguće dohvatiti email.');
+
+      var tokenRes = await fetch(SB_URL + '/auth/v1/token?grant_type=authorization_code', {
+        method: 'POST',
+        headers: {
+          'apikey': SB_KEY,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: body.toString()
+      });
+
+      var tokenData = await tokenRes.json();
+      if (tokenData.error || !tokenData.access_token) {
+        throw new Error(tokenData.error_description || tokenData.error || 'Token exchange nije uspeo (status '+tokenRes.status+')');
+      }
+
+      var u = tokenData.user;
+      if (!u || !u.email) throw new Error('Nije moguće dohvatiti email iz tokena.');
       await createOrGetUser(u.email, u.user_metadata);
       return;
     }
 
-    throw new Error('Nije pronađen token u URL-u.');
+    throw new Error('Nije pronađen token ni code u URL-u.');
   } catch(e) {
     localStorage.removeItem('auth_attempts');
     showError(String(e.message||e).replace(/</g,'&lt;').replace(/>/g,'&gt;'));

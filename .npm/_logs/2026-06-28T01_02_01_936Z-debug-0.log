@@ -1,0 +1,75 @@
+0 verbose cli /usr/bin/node /usr/bin/npm
+1 info using npm@10.9.7
+2 info using node@v22.22.2
+3 silly config load:file:/usr/lib/node_modules/npm/npmrc
+4 silly config load:file:/tmp/.npmrc
+5 silly config load:file:/root/.npmrc
+6 silly config load:file:/usr/etc/npmrc
+7 verbose title npm pack @supabase/supabase-js@2
+8 verbose argv "pack" "@supabase/supabase-js@2"
+9 verbose logfile logs-max:10 dir:/home/claude/.npm/_logs/2026-06-28T01_02_01_936Z-
+10 verbose logfile /home/claude/.npm/_logs/2026-06-28T01_02_01_936Z-debug-0.log
+11 silly logfile done cleaning log files
+12 http fetch GET 200 https://registry.npmjs.org/npm 191ms
+13 http fetch GET 200 https://registry.npmjs.org/@supabase%2fsupabase-js 271ms (cache miss)
+14 http cache https://registry.npmjs.org/@supabase%2fsupabase-js 19ms (cache hit)
+15 http cache https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.108.2.tgz 0ms (cache hit)
+16 silly tarball no local data for https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.108.2.tgz. Extracting by manifest.
+17 http fetch GET 200 https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.108.2.tgz 86ms (cache miss)
+18 notice
+19 notice package: @supabase/supabase-js@2.108.2
+20 notice Tarball Contents
+21 notice 996B AGENTS.md
+21 notice 1.1kB LICENSE
+21 notice 10.8kB README.md
+21 notice 2.3kB dist/cors.cjs
+21 notice 2.9kB dist/cors.cjs.map
+21 notice 1.6kB dist/cors.d.cts
+21 notice 196B dist/cors.d.cts.map
+21 notice 1.6kB dist/cors.d.mts
+21 notice 196B dist/cors.d.mts.map
+21 notice 2.3kB dist/cors.mjs
+21 notice 2.8kB dist/cors.mjs.map
+21 notice 57.2kB dist/index.cjs
+21 notice 87.9kB dist/index.cjs.map
+21 notice 35.9kB dist/index.d.cts
+21 notice 12.5kB dist/index.d.cts.map
+21 notice 35.9kB dist/index.d.mts
+21 notice 12.5kB dist/index.d.mts.map
+21 notice 35.3kB dist/index.mjs
+21 notice 73.6kB dist/index.mjs.map
+21 notice 204.6kB dist/umd/supabase.js
+21 notice 1.5kB migrations/README.md
+21 notice 5.4kB package.json
+21 notice 2.4kB src/cors.ts
+21 notice 3.4kB src/index.ts
+21 notice 1.4kB src/lib/constants.ts
+21 notice 2.9kB src/lib/fetch.ts
+21 notice 3.4kB src/lib/helpers.ts
+21 notice 2.4kB src/lib/rest/types/common/common.ts
+21 notice 6.6kB src/lib/rest/types/common/rpc.ts
+21 notice 230B src/lib/SupabaseAuthClient.ts
+21 notice 11.7kB src/lib/types.ts
+21 notice 447B src/lib/version.ts
+21 notice 23.9kB src/SupabaseClient.ts
+22 notice Tarball Details
+23 notice name: @supabase/supabase-js
+24 notice version: 2.108.2
+25 notice filename: supabase-supabase-js-2.108.2.tgz
+26 notice package size: 169.6 kB
+27 notice unpacked size: 647.9 kB
+28 notice shasum: 58e69f8a6f6aeea4d76d8e9d5a5ce3ceb2a78281
+29 notice integrity: sha512-hFhnPveb5JQg4[...]8sz8bvYlgwUfQ==
+30 notice total files: 33
+31 notice
+32 verbose cwd /tmp
+33 verbose os Linux 6.18.5
+34 verbose node v22.22.2
+35 verbose npm  v10.9.7
+36 notice
+36 notice New major version of npm available! 10.9.7 -> 11.17.0
+36 notice Changelog: https://github.com/npm/cli/releases/tag/v11.17.0
+36 notice To update run: npm install -g npm@11.17.0
+36 notice  { force: true, [Symbol(proc-log.meta)]: true }
+37 verbose exit 0
+38 info ok

@@ -18,6 +18,7 @@
   <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:8px">Prijava u toku...</h2>
   <p style="color:#6b7280;font-size:.9rem" id="status">Obrađujemo tvoj Google nalog.</p>
 </div>
+<script src="/js/vendor/supabase.min.js"></script>
 <script>
 var SB_URL = 'https://iyuyhbgampbwkxlbdgvi.supabase.co';
 var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5dXloYmdhbXBid2t4bGJkZ3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDMwOTAsImV4cCI6MjA5NzU3OTA5MH0.28-mt9G-lMDr35ijigo2f5IiYrzcBZAF0Rf4Y9L4DUA';
@@ -51,21 +52,20 @@ async function createOrGetUser(email, meta) {
     id:user.id, name:user.name, email:user.email, city:user.city||'', phone:user.phone||''
   }));
   setStatus('Uspešno! Preusmeravanje...');
-  setTimeout(function(){ window.location.replace('index.html'); }, 600);
+  var next = localStorage.getItem('pk_login_next') || 'index.html';
+  localStorage.removeItem('pk_login_next');
+  setTimeout(function(){ window.location.replace(next); }, 600);
 }
 
 async function run() {
   try {
     var params  = new URLSearchParams(window.location.search);
     var hash    = new URLSearchParams(window.location.hash.replace('#',''));
-    var code    = params.get('code');
-    var accTok  = hash.get('access_token');
     var errDesc = params.get('error_description') || hash.get('error_description');
-    var stateRaw = params.get('state');
 
     if (errDesc) throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
 
-    // Implicit flow
+    var accTok = hash.get('access_token');
     if (accTok) {
       setStatus('Dohvatam podatke...');
       var r = await fetch(SB_URL+'/auth/v1/user', {headers:{'Authorization':'Bearer '+accTok,'apikey':SB_KEY}});
@@ -75,46 +75,26 @@ async function run() {
       return;
     }
 
-    // PKCE flow — verifier iz state parametra
-    if (code) {
+    // PKCE — SDK sa sessionStorage (verifier preživljava redirect)
+    if (params.get('code')) {
       setStatus('Razmena koda...');
-
-      // Izvuci verifier iz state
-      var verifier = null;
-      if (stateRaw) {
-        try {
-          var stateObj = JSON.parse(atob(stateRaw));
-          verifier = stateObj.v;
-        } catch(e) {}
-      }
-
-      if (!verifier) throw new Error('PKCE verifier nije pronađen u state parametru. Pokušaj ponovo.');
-
-      var body = new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code,
-        code_verifier: verifier,
-        redirect_uri: window.location.origin + '/auth-callback.html'
+      var client = supabase.createClient(SB_URL, SB_KEY, {
+        auth: {
+          flowType: 'pkce',
+          detectSessionInUrl: false,
+          persistSession: false,
+          storage: window.sessionStorage
+        }
       });
-
-      var tokenRes = await fetch(SB_URL + '/auth/v1/token?grant_type=authorization_code', {
-        method: 'POST',
-        headers: {'apikey': SB_KEY, 'Content-Type': 'application/x-www-form-urlencoded'},
-        body: body.toString()
-      });
-
-      var tokenData = await tokenRes.json();
-      if (tokenData.error || !tokenData.access_token) {
-        throw new Error(tokenData.error_description || tokenData.error || 'Token exchange greška ('+tokenRes.status+')');
-      }
-
-      var u = tokenData.user;
-      if (!u || !u.email) throw new Error('Nije moguće dohvatiti email iz tokena.');
+      var result = await client.auth.exchangeCodeForSession(window.location.href);
+      if (result.error) throw new Error(result.error.message);
+      var u = result.data && result.data.user;
+      if (!u || !u.email) throw new Error('Nije moguće dohvatiti email.');
       await createOrGetUser(u.email, u.user_metadata);
       return;
     }
 
-    throw new Error('Nije pronađen token ni code u URL-u.');
+    throw new Error('Nije pronađen token u URL-u.');
   } catch(e) {
     showError(String(e.message||e).replace(/</g,'&lt;').replace(/>/g,'&gt;'));
   }

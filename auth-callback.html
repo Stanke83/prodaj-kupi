@@ -51,49 +51,44 @@ async function createOrGetUser(email, meta) {
     id:user.id, name:user.name, email:user.email, city:user.city||'', phone:user.phone||''
   }));
   setStatus('Uspešno! Preusmeravanje...');
-  var next = localStorage.getItem('pk_login_next') || 'index.html';
-  localStorage.removeItem('pk_login_next');
-  localStorage.removeItem('pkce_verifier');
-  localStorage.removeItem('auth_attempts');
-  setTimeout(function(){ window.location.replace(next); }, 600);
+  setTimeout(function(){ window.location.replace('index.html'); }, 600);
 }
 
 async function run() {
-  // Zaštita od petlje
-  var attempts = parseInt(localStorage.getItem('auth_attempts')||'0');
-  if (attempts > 2) {
-    localStorage.removeItem('auth_attempts');
-    showError('Previše pokušaja. <a href="index.html" style="color:#1a8f4b">Pokušaj ponovo</a>');
-    return;
-  }
-  localStorage.setItem('auth_attempts', attempts + 1);
-
   try {
     var params  = new URLSearchParams(window.location.search);
     var hash    = new URLSearchParams(window.location.hash.replace('#',''));
     var code    = params.get('code');
     var accTok  = hash.get('access_token');
     var errDesc = params.get('error_description') || hash.get('error_description');
+    var stateRaw = params.get('state');
 
     if (errDesc) throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
 
-    // Implicit flow (hash token)
+    // Implicit flow
     if (accTok) {
       setStatus('Dohvatam podatke...');
-      var r = await fetch(SB_URL+'/auth/v1/user', {
-        headers:{'Authorization':'Bearer '+accTok,'apikey':SB_KEY}
-      });
+      var r = await fetch(SB_URL+'/auth/v1/user', {headers:{'Authorization':'Bearer '+accTok,'apikey':SB_KEY}});
       var ud = await r.json();
       if (!ud || !ud.email) throw new Error('Nije moguće dohvatiti podatke.');
       await createOrGetUser(ud.email, ud.user_metadata);
       return;
     }
 
-    // PKCE flow — ručni exchange sa našim verifierom
+    // PKCE flow — verifier iz state parametra
     if (code) {
       setStatus('Razmena koda...');
-      var verifier = localStorage.getItem('pkce_verifier');
-      if (!verifier) throw new Error('PKCE verifier nije pronađen. Pokušaj da se prijaviš ponovo.');
+
+      // Izvuci verifier iz state
+      var verifier = null;
+      if (stateRaw) {
+        try {
+          var stateObj = JSON.parse(atob(stateRaw));
+          verifier = stateObj.v;
+        } catch(e) {}
+      }
+
+      if (!verifier) throw new Error('PKCE verifier nije pronađen u state parametru. Pokušaj ponovo.');
 
       var body = new URLSearchParams({
         grant_type: 'authorization_code',
@@ -104,16 +99,13 @@ async function run() {
 
       var tokenRes = await fetch(SB_URL + '/auth/v1/token?grant_type=authorization_code', {
         method: 'POST',
-        headers: {
-          'apikey': SB_KEY,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
+        headers: {'apikey': SB_KEY, 'Content-Type': 'application/x-www-form-urlencoded'},
         body: body.toString()
       });
 
       var tokenData = await tokenRes.json();
       if (tokenData.error || !tokenData.access_token) {
-        throw new Error(tokenData.error_description || tokenData.error || 'Token exchange nije uspeo (status '+tokenRes.status+')');
+        throw new Error(tokenData.error_description || tokenData.error || 'Token exchange greška ('+tokenRes.status+')');
       }
 
       var u = tokenData.user;
@@ -124,7 +116,6 @@ async function run() {
 
     throw new Error('Nije pronađen token ni code u URL-u.');
   } catch(e) {
-    localStorage.removeItem('auth_attempts');
     showError(String(e.message||e).replace(/</g,'&lt;').replace(/>/g,'&gt;'));
   }
 }

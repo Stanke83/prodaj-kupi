@@ -29,10 +29,6 @@ function showError(msg) {
   document.getElementById('status').innerHTML='<div class="err">❌ '+msg+'</div><br/><a href="index.html" style="color:#1a8f4b;font-weight:600;font-size:.9rem">← Nazad na početnu</a>';
 }
 
-function sbHeaders(token) {
-  return { 'apikey': SB_KEY, 'Authorization': 'Bearer '+(token||SB_KEY), 'Content-Type': 'application/json' };
-}
-
 function saveSession(user) {
   try {
     localStorage.setItem('pk_session', JSON.stringify({
@@ -45,16 +41,18 @@ function saveSession(user) {
 async function createOrGetUser(email, meta) {
   email = email.toLowerCase().trim();
   var name = (meta && (meta.full_name || meta.name)) || email.split('@')[0];
-  var chk = await fetch(SB_URL+'/rest/v1/users?email=eq.'+encodeURIComponent(email), {headers: sbHeaders()});
+  var headers = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+
+  var chk = await fetch(SB_URL+'/rest/v1/users?email=eq.'+encodeURIComponent(email), {headers:headers});
   var existing = await chk.json();
   var user;
   if (existing && existing.length > 0) {
     user = existing[0];
   } else {
     var ins = await fetch(SB_URL+'/rest/v1/users', {
-      method: 'POST',
-      headers: Object.assign({}, sbHeaders(), {'Prefer':'return=representation'}),
-      body: JSON.stringify({name:name, email:email, pass:'google_'+Math.random().toString(36).slice(2,10), city:'', phone:''})
+      method:'POST',
+      headers:Object.assign({},headers,{'Prefer':'return=representation'}),
+      body:JSON.stringify({name:name,email:email,pass:'google_'+Math.random().toString(36).slice(2,10),city:'',phone:''})
     });
     var rows = await ins.json();
     user = rows && rows[0];
@@ -64,12 +62,42 @@ async function createOrGetUser(email, meta) {
   setStatus('Uspešno! Preusmeravanje...');
   var next = localStorage.getItem('pk_login_next') || 'index.html';
   localStorage.removeItem('pk_login_next');
-  setTimeout(function(){ window.location.replace(next); }, 500);
+  setTimeout(function(){ window.location.replace(next); }, 600);
+}
+
+async function handleWithSDK(code) {
+  setStatus('Učitavam auth modul...');
+  // Dinamički učitaj Supabase SDK sa unpkg (alternativni CDN)
+  return new Promise(function(resolve, reject) {
+    var script = document.createElement('script');
+    script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+    script.onload = async function() {
+      try {
+        setStatus('Razmena koda...');
+        var client = supabase.createClient(SB_URL, SB_KEY, {
+          auth: { detectSessionInUrl: true, persistSession: false, flowType: 'pkce' }
+        });
+        var result = await client.auth.exchangeCodeForSession(window.location.href);
+        if (result.error) throw new Error(result.error.message);
+        var u = result.data && result.data.user;
+        if (!u || !u.email) throw new Error('Nije moguće dohvatiti email.');
+        resolve(u);
+      } catch(e) { reject(e); }
+    };
+    script.onerror = function() {
+      reject(new Error('Ne mogu da učitam auth modul. Proveri internet vezu ili uBlock podešavanja.'));
+    };
+    document.head.appendChild(script);
+  });
 }
 
 async function run() {
   var attempts = parseInt(localStorage.getItem('auth_attempts')||'0');
-  if (attempts > 3) { localStorage.removeItem('auth_attempts'); showError('Previše pokušaja. <a href="index.html" style="color:#1a8f4b">Pokušaj ponovo</a>'); return; }
+  if (attempts > 3) {
+    localStorage.removeItem('auth_attempts');
+    showError('Previše pokušaja. <a href="index.html" style="color:#1a8f4b">Pokušaj ponovo</a>');
+    return;
+  }
   localStorage.setItem('auth_attempts', attempts+1);
 
   try {
@@ -81,42 +109,22 @@ async function run() {
 
     if (errDesc) throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
 
-    // Hash flow (implicit)
+    // Implicit flow (hash)
     if (accTok) {
       setStatus('Dohvatam podatke...');
-      var r = await fetch(SB_URL+'/auth/v1/user', {headers:{'Authorization':'Bearer '+accTok,'apikey':SB_KEY}});
+      var r = await fetch(SB_URL+'/auth/v1/user', {
+        headers:{'Authorization':'Bearer '+accTok,'apikey':SB_KEY}
+      });
       var ud = await r.json();
-      if (!ud || !ud.email) throw new Error('Nije moguće dohvatiti podatke sa Google naloga.');
+      if (!ud || !ud.email) throw new Error('Nije moguće dohvatiti podatke.');
       await createOrGetUser(ud.email, ud.user_metadata);
       return;
     }
 
-    // PKCE code flow — koristimo Supabase token endpoint direktno
+    // PKCE flow (code) — koristimo SDK dinamički
     if (code) {
-      setStatus('Razmena koda...');
-
-      // Pokušaj 1: sa code_verifier iz storage-a (ako ga je SDK ostavio)
-      var verifier = localStorage.getItem('supabase.auth.code_verifier')
-                  || sessionStorage.getItem('supabase.auth.code_verifier');
-
-      var formBody = 'grant_type=authorization_code&code='+encodeURIComponent(code)+'&redirect_uri='+encodeURIComponent(window.location.origin+'/auth-callback.html');
-      if (verifier) formBody += '&code_verifier='+encodeURIComponent(verifier);
-
-      var tokenRes = await fetch(SB_URL+'/auth/v1/token?grant_type=authorization_code', {
-        method: 'POST',
-        headers: {'apikey': SB_KEY, 'Content-Type': 'application/x-www-form-urlencoded'},
-        body: formBody
-      });
-      var tokenData = await tokenRes.json();
-
-      if (tokenData.error || !tokenData.access_token) {
-        // Pokušaj 2: koristi code direktno na user endpoint (neki Supabase verzije podržavaju)
-        throw new Error(tokenData.error_description || tokenData.error || 'Code exchange nije uspeo. Pokušaj ponovo.');
-      }
-
-      var au = tokenData.user;
-      if (!au || !au.email) throw new Error('Nije moguće dohvatiti email.');
-      await createOrGetUser(au.email, au.user_metadata);
+      var authUser = await handleWithSDK(code);
+      await createOrGetUser(authUser.email, authUser.user_metadata);
       return;
     }
 

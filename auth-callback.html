@@ -63,38 +63,30 @@ async function run() {
     var hash    = new URLSearchParams(window.location.hash.replace('#',''));
     var errDesc = params.get('error_description') || hash.get('error_description');
 
-    if (errDesc) throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
+    if (errDesc) {
+      throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
+    }
 
+    // Implicit flow: token je u hash-u
     var accTok = hash.get('access_token');
     if (accTok) {
       setStatus('Dohvatam podatke...');
-      var r = await fetch(SB_URL+'/auth/v1/user', {headers:{'Authorization':'Bearer '+accTok,'apikey':SB_KEY}});
+      // Koristimo SDK da parsira hash i dobijemo user
+      var client = supabase.createClient(SB_URL, SB_KEY, {
+        auth: { flowType: 'implicit', detectSessionInUrl: false, persistSession: false }
+      });
+      var r = await fetch(SB_URL+'/auth/v1/user', {
+        headers:{'Authorization':'Bearer '+accTok,'apikey':SB_KEY}
+      });
       var ud = await r.json();
-      if (!ud || !ud.email) throw new Error('Nije moguće dohvatiti podatke.');
+      if (!ud || !ud.email) throw new Error('Nije moguće dohvatiti podatke sa Google naloga.');
       await createOrGetUser(ud.email, ud.user_metadata);
       return;
     }
 
-    // PKCE — SDK sa sessionStorage (verifier preživljava redirect)
-    if (params.get('code')) {
-      setStatus('Razmena koda...');
-      var client = supabase.createClient(SB_URL, SB_KEY, {
-        auth: {
-          flowType: 'pkce',
-          detectSessionInUrl: false,
-          persistSession: false,
-          storage: window.sessionStorage
-        }
-      });
-      var result = await client.auth.exchangeCodeForSession(window.location.href);
-      if (result.error) throw new Error(result.error.message);
-      var u = result.data && result.data.user;
-      if (!u || !u.email) throw new Error('Nije moguće dohvatiti email.');
-      await createOrGetUser(u.email, u.user_metadata);
-      return;
-    }
+    // Ako nema ni tokena ni greške
+    throw new Error('Nije pronađen token u URL-u. Pokušaj ponovo.');
 
-    throw new Error('Nije pronađen token u URL-u.');
   } catch(e) {
     showError(String(e.message||e).replace(/</g,'&lt;').replace(/>/g,'&gt;'));
   }

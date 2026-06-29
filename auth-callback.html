@@ -28,7 +28,8 @@ var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI'
 function setStatus(msg) { var el=document.getElementById('status'); if(el) el.textContent=msg; }
 function showError(msg) {
   document.getElementById('spinner').style.display='none';
-  document.getElementById('status').innerHTML='<div class="err">❌ '+msg+'</div><br/><a href="index.html" style="color:#1a8f4b;font-weight:600;font-size:.9rem">← Nazad na početnu</a>';
+  document.getElementById('status').innerHTML='<div class="err">❌ '+msg+'</div>'
+    +'<br/><a href="index.html" style="color:#1a8f4b;font-weight:600;font-size:.9rem">← Nazad na početnu</a>';
 }
 
 async function createOrGetUser(email, meta) {
@@ -53,42 +54,51 @@ async function createOrGetUser(email, meta) {
   localStorage.setItem('pk_session', JSON.stringify({
     id:user.id, name:user.name, email:user.email, city:user.city||'', phone:user.phone||''
   }));
-  setStatus('Uspešno! Preusmeravanje...');
   var next = localStorage.getItem('pk_login_next') || 'index.html';
   localStorage.removeItem('pk_login_next');
+  setStatus('Uspešno! Preusmeravanje...');
   setTimeout(function(){ window.location.replace(next); }, 600);
 }
 
 async function run() {
+  // Odmah ukloni sve loop prevention varijable
+  localStorage.removeItem('auth_attempts');
+
   try {
-    var params  = new URLSearchParams(window.location.search);
-    var hash    = new URLSearchParams(window.location.hash.replace('#',''));
+    var params = new URLSearchParams(window.location.search);
+    var hash   = new URLSearchParams(window.location.hash.replace('#',''));
     var errDesc = params.get('error_description') || hash.get('error_description');
+    if (errDesc) throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
 
-    if (errDesc) {
-      throw new Error(decodeURIComponent(errDesc.replace(/\+/g,' ')));
-    }
-
-    // Implicit flow: token je u hash-u
+    // Implicit flow — token u hash-u
     var accTok = hash.get('access_token');
     if (accTok) {
       setStatus('Dohvatam podatke...');
-      // Koristimo SDK da parsira hash i dobijemo user
-      var client = supabase.createClient(SB_URL, SB_KEY, {
-        auth: { flowType: 'implicit', detectSessionInUrl: false, persistSession: false }
-      });
       var r = await fetch(SB_URL+'/auth/v1/user', {
         headers:{'Authorization':'Bearer '+accTok,'apikey':SB_KEY}
       });
       var ud = await r.json();
-      if (!ud || !ud.email) throw new Error('Nije moguće dohvatiti podatke sa Google naloga.');
+      if (!ud || !ud.email) throw new Error('Nije moguće dohvatiti podatke.');
       await createOrGetUser(ud.email, ud.user_metadata);
       return;
     }
 
-    // Ako nema ni tokena ni greške
-    throw new Error('Nije pronađen token u URL-u. Pokušaj ponovo.');
+    // PKCE flow — SDK sa sessionStorage
+    var code = params.get('code');
+    if (code) {
+      setStatus('Razmena koda...');
+      var client = supabase.createClient(SB_URL, SB_KEY, {
+        auth: { flowType: 'pkce', detectSessionInUrl: false, persistSession: false, storage: window.sessionStorage }
+      });
+      var result = await client.auth.exchangeCodeForSession(window.location.href);
+      if (result.error) throw new Error(result.error.message);
+      var u = result.data && result.data.user;
+      if (!u || !u.email) throw new Error('Nije moguće dohvatiti email.');
+      await createOrGetUser(u.email, u.user_metadata);
+      return;
+    }
 
+    throw new Error('Nije pronađen token u URL-u.');
   } catch(e) {
     showError(String(e.message||e).replace(/</g,'&lt;').replace(/>/g,'&gt;'));
   }

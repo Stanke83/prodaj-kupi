@@ -1,26 +1,16 @@
-// ===== GOOGLE LOGIN — Implicit flow via Supabase SDK =====
-// Vanilla JS SPA = implicit flow je ispravan izbor (bez SSR, bez PKCE)
+// ===== GOOGLE LOGIN — forsirani implicit flow =====
 var SB_URL = 'https://iyuyhbgampbwkxlbdgvi.supabase.co';
-var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI'
-  + 'sInJlZiI6Iml5dXloYmdhbXBid2t4bGJkZ3ZpIiwicm9sZSI6ImFub24iLCJ'
-  + 'pYXQiOjE3ODIwMDMwOTAsImV4cCI6MjA5NzU3OTA5MH0.28-mt9G-lMDr35ijigo2f5IiYrzcBZAF0Rf4Y9L4DUA';
 
 function loginWithGoogle() {
-  // SDK sa flowType: 'implicit' => vraca #access_token u hash, nema PKCE
-  var client = supabase.createClient(SB_URL, SB_KEY, {
-    auth: {
-      flowType: 'implicit',
-      detectSessionInUrl: false,
-      persistSession: false
-    }
-  });
-  client.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin + '/auth-callback.html',
-      scopes: 'email profile'
-    }
-  });
+  var redirectTo = window.location.origin + '/auth-callback.html';
+  // response_type=token forsira implicit flow — Supabase vraca #access_token
+  // bez PKCE, bez code_verifier problema
+  var url = SB_URL + '/auth/v1/authorize'
+    + '?provider=google'
+    + '&redirect_to=' + encodeURIComponent(redirectTo)
+    + '&scopes=email%20profile'
+    + '&response_type=token';
+  window.location.href = url;
 }
 
 window.loginWithGoogle = loginWithGoogle;

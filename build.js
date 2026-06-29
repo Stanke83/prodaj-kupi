@@ -20,7 +20,7 @@ function processDir(dir) {
     } else if (entry.name.endsWith('.js') || entry.name.endsWith('.html')) {
       if (entry.name === 'supabase.min.js') continue;
       let content = fs.readFileSync(full, 'utf8');
-      const newContent = content.replace(/__SB_URL__/g, SB_URL).replace(/__SB_KEY__/g, SB_KEY);
+      const newContent = content.replace(/https://iyuyhbgampbwkxlbdgvi.supabase.co/g, SB_URL).replace(/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5dXloYmdhbXBid2t4bGJkZ3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDMwOTAsImV4cCI6MjA5NzU3OTA5MH0.28-mt9G-lMDr35ijigo2f5IiYrzcBZAF0Rf4Y9L4DUA/g, SB_KEY);
       if (newContent !== content) {
         fs.writeFileSync(full, newContent);
         console.log('Processed:', full);

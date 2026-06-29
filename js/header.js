@@ -124,7 +124,7 @@ function googleLogin() {
   var next = window.location.href;
   localStorage.setItem('pk_login_next', next);
   var redirectTo = encodeURIComponent(window.location.origin + '/auth-callback.html');
-  window.location.href = '__SB_URL__/auth/v1/authorize?provider=google&redirect_to=' + redirectTo + '&scopes=email%20profile';
+  window.location.href = 'https://iyuyhbgampbwkxlbdgvi.supabase.co/auth/v1/authorize?provider=google&redirect_to=' + redirectTo + '&scopes=email%20profile';
 }
 
 function setBtnLoading(id, loading, text) {

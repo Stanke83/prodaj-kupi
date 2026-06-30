@@ -173,6 +173,10 @@ function loadMessages() {
   var other = currentConv.otherEmail;
   var adId  = currentConv.adId;
 
+  // Sačuvaj tekst koji korisnik trenutno kuca
+  var existingInput = document.getElementById('msgInput');
+  var savedDraft = existingInput ? existingInput.value : '';
+
   // Dohvati poruke između nas dvoje za ovaj oglas
   sbFetch('messages?ad_id=eq.'+encodeURIComponent(adId)+
     '&or=(and(from_email.eq.'+encodeURIComponent(me)+',to_email.eq.'+encodeURIComponent(other)+'),and(from_email.eq.'+encodeURIComponent(other)+',to_email.eq.'+encodeURIComponent(me)+'))'+
@@ -200,9 +204,22 @@ function loadMessages() {
         '<button onclick="sendMsg()" title="Pošalji">➤</button>' +
       '</div>';
 
-    // Skroluj na dno
+    // Vrati tekst koji je korisnik kucao pre rekreiranja DOM-a
+    if (savedDraft) {
+      var newInput = document.getElementById('msgInput');
+      if (newInput) {
+        newInput.value = savedDraft;
+        newInput.style.height = 'auto';
+        newInput.style.height = newInput.scrollHeight + 'px';
+      }
+    }
+
+    // Skroluj na dno samo ako korisnik nije fokusiran na input
+    var activeEl = document.activeElement;
     var msgs2 = document.getElementById('chatMsgs');
-    if (msgs2) msgs2.scrollTop = msgs2.scrollHeight;
+    if (msgs2 && (!activeEl || activeEl.id !== 'msgInput')) {
+      msgs2.scrollTop = msgs2.scrollHeight;
+    }
 
     // Označi kao pročitane
     msgs.filter(function(m){ return m.to_email===me && !m.read; }).forEach(function(m) {

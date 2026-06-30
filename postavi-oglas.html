@@ -97,7 +97,7 @@
 
         <!-- 2. FOTOGRAFIJE -->
         <div class="form-card">
-          <div class="form-card__head"><div class="form-card__num">2</div><h2>Fotografije</h2><span class="form-card__hint">Do 20 • Prva je naslovna • ☁️ Cloudinary</span></div>
+          <div class="form-card__head"><div class="form-card__num">2</div><h2>Fotografije</h2><span class="form-card__hint">Do 15 • Prva je naslovna • ☁️ Cloudinary</span></div>
           <div class="form-card__body">
             <div class="photo-upload-area" id="photoArea" onclick="document.getElementById('photoFileInput').click()">
               <div class="photo-upload-area__icon">📷</div>
@@ -162,17 +162,12 @@
               <label>Cena <span class="req">*</span></label>
               <div class="price-row">
                 <div class="input-with-unit">
-                  <input type="number" id="adPrice" placeholder="0" min="0"/>
+                  <input type="number" id="adPrice" placeholder="0" min="0" oninput="updateEurPrice()"/>
                   <span class="input-unit">RSD</span>
                 </div>
                 <label class="checkbox-option"><input type="checkbox" id="adFixed"/><span>Fiksna cena</span></label>
               </div>
-            </div>
-            <div class="form-group">
-              <label class="checkbox-option" style="padding:12px 14px;border:1.5px solid var(--gray-200);border-radius:9px;display:flex">
-                <input type="checkbox" id="adFree" style="width:17px;height:17px;accent-color:var(--green);cursor:pointer;flex-shrink:0"/>
-                <span style="margin-left:9px"><strong>Poklanjam besplatno</strong> — cena je 0 RSD</span>
-              </label>
+              <p id="eurPriceHint" style="margin-top:6px;font-size:.85rem;color:var(--gray-500)"></p>
             </div>
             <div class="form-group">
               <label>Mogućnost zamene</label>
@@ -209,7 +204,7 @@
                 <input type="text" id="adMunicipality" placeholder="Npr. Zemun, Stari grad..."/>
               </div>
             </div>
-            <div class="form-group">
+            <div class="form-group" id="deliveryWrap">
               <label>Način preuzimanja</label>
               <div class="checkbox-stack">
                 <label class="checkbox-option"><input type="checkbox" id="delPersonal" checked/><span>Lično preuzimanje</span></label>
@@ -330,6 +325,8 @@ var SUBCATS = {
   'Muzički instrumenti':['Gitare','Klaviri','Bubnjevi','Duvački','Studio oprema','Ostalo'],
 };
 var VEHICLE=['Automobili','Motocikli','Bicikli'], CLOTHING=['Odeća i obuća'];
+var REAL_ESTATE=['Nekretnine','Nekretnine izdavanje'];
+var EUR_RATE = 117.3; // RSD za 1 EUR
 
 // Photo upload
 document.getElementById('photoFileInput').addEventListener('change', function(e) {
@@ -344,7 +341,7 @@ photoArea.addEventListener('drop', function(e){
 });
 
 function addFiles(files) {
-  var rem = 20 - photoItems.length;
+  var rem = 15 - photoItems.length;
   files.slice(0,rem).forEach(function(file) {
     var idx = photoItems.length;
     photoItems.push({ file:file, previewUrl:URL.createObjectURL(file), cloudUrl:null, uploading:true, progress:0 });
@@ -399,6 +396,19 @@ function onCatChange() {
   document.getElementById('mileageWrap').style.display=VEHICLE.indexOf(cat)>-1?'block':'none';
   document.getElementById('yearWrap').style.display=VEHICLE.indexOf(cat)>-1?'block':'none';
   document.getElementById('sizeWrap').style.display=CLOTHING.indexOf(cat)>-1?'block':'none';
+  var delWrap = document.getElementById('deliveryWrap');
+  if (delWrap) delWrap.style.display = REAL_ESTATE.indexOf(cat)>-1 ? 'none' : 'block';
+}
+
+function updateEurPrice() {
+  var price = parseFloat(document.getElementById('adPrice').value) || 0;
+  var hint = document.getElementById('eurPriceHint');
+  if (price > 0) {
+    var eur = (price / EUR_RATE).toFixed(0);
+    hint.textContent = '≈ ' + eur + ' €';
+  } else {
+    hint.textContent = '';
+  }
 }
 
 (function(){
@@ -410,10 +420,6 @@ function onCatChange() {
 
 document.getElementById('adTitle').addEventListener('input',function(){document.getElementById('titleLen').textContent=this.value.length;});
 document.getElementById('adDesc').addEventListener('input',function(){document.getElementById('descLen').textContent=this.value.length;});
-document.getElementById('adFree').addEventListener('change',function(){
-  var p=document.getElementById('adPrice');
-  if(this.checked){p.value='0';p.disabled=true;}else{p.value='';p.disabled=false;}
-});
 
 function showError(msg){ var b=document.getElementById('postErrorBox'); b.textContent=msg; b.style.display='block'; b.scrollIntoView({behavior:'smooth',block:'center'}); }
 function clearError(){ var b=document.getElementById('postErrorBox'); b.style.display='none'; b.textContent=''; }
@@ -428,7 +434,6 @@ function submitAd() {
   var title=document.getElementById('adTitle').value.trim();
   var desc=document.getElementById('adDesc').value.trim();
   var price=document.getElementById('adPrice').value;
-  var isFree=document.getElementById('adFree').checked;
   var city=document.getElementById('adCity').value;
   var contactName=document.getElementById('adContactName').value.trim();
   var phone=document.getElementById('adPhone').value.trim();
@@ -436,16 +441,16 @@ function submitAd() {
   if (!category)         { showError('⚠️ Izaberi kategoriju.'); return; }
   if (!title||title.length<5) { showError('⚠️ Naslov mora imati minimum 5 karaktera.'); return; }
   if (!desc||desc.length<20)  { showError('⚠️ Opis mora imati minimum 20 karaktera.'); return; }
-  if (!isFree && !price) { showError('⚠️ Unesi cenu ili čekiraj "Poklanjam besplatno".'); return; }
+  if (!price)             { showError('⚠️ Unesi cenu.'); return; }
   if (!city)             { showError('⚠️ Izaberi grad.'); return; }
   if (!contactName)      { showError('⚠️ Unesi ime kontakt osobe.'); return; }
   if (!phone)            { showError('⚠️ Unesi broj telefona.'); return; }
   if (!allUploaded())    { showError('⏳ Sačekaj da se sve fotografije uploaduju.'); return; }
 
   var delivery=[];
-  if(document.getElementById('delPersonal').checked) delivery.push('Lično preuzimanje');
-  if(document.getElementById('delCourier').checked)  delivery.push('Kurirska služba');
-  if(document.getElementById('delPost').checked)     delivery.push('Pošta');
+  if(document.getElementById('delPersonal') && document.getElementById('delPersonal').checked) delivery.push('Lično preuzimanje');
+  if(document.getElementById('delCourier') && document.getElementById('delCourier').checked)  delivery.push('Kurirska služba');
+  if(document.getElementById('delPost') && document.getElementById('delPost').checked)     delivery.push('Pošta');
 
   var availability=[];
   if(document.getElementById('contMorning').checked)   availability.push('Ujutro 8–12h');
@@ -462,8 +467,7 @@ function submitAd() {
     subcategory:  subcategory,
     description:  desc,
     condition:    (document.querySelector('input[name="adCondition"]:checked')||{}).value||'Polovno',
-    price:        isFree ? 0 : (parseFloat(price)||0),
-    is_free:      isFree,
+    price:        parseFloat(price)||0,
     is_fixed:     document.getElementById('adFixed').checked,
     swap:         (document.querySelector('input[name="adSwap"]:checked')||{}).value||'Ne',
     city:         city,

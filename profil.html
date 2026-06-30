@@ -150,7 +150,7 @@ function loadMyAds() {
         '<div class="my-ad-card__thumb">' + thumb + '</div>' +
         '<div class="my-ad-card__body">' +
           '<div class="my-ad-card__title">' + escHtml(ad.title) + '</div>' +
-          '<div class="my-ad-card__price">' + (ad.is_free?'Besplatno':Number(ad.price||0).toLocaleString('sr-RS')+' RSD') + '</div>' +
+          '<div class="my-ad-card__price">' + Number(ad.price||0).toLocaleString('sr-RS')+' RSD' + '</div>' +
           '<div class="my-ad-card__meta">📍 ' + escHtml(ad.city||'') + ' · ' + timeAgo(ad.created_at) + '</div>' +
         '</div>' +
         '<div class="my-ad-card__actions">' +
@@ -181,7 +181,7 @@ function loadFavorites() {
           '<div class="my-ad-card__thumb">' + thumb + '</div>' +
           '<div class="my-ad-card__body">' +
             '<div class="my-ad-card__title">' + escHtml(ad.title) + '</div>' +
-            '<div class="my-ad-card__price">' + (ad.is_free?'Besplatno':Number(ad.price||0).toLocaleString('sr-RS')+' RSD') + '</div>' +
+            '<div class="my-ad-card__price">' + Number(ad.price||0).toLocaleString('sr-RS')+' RSD' + '</div>' +
             '<div class="my-ad-card__meta">📍 ' + escHtml(ad.city||'') + '</div>' +
           '</div>' +
           '<div class="my-ad-card__actions">' +

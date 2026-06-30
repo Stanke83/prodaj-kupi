@@ -84,6 +84,8 @@ var SUBCATS = {
   'Knjige':['Romani','Naučna literatura','Udžbenici','Dečje knjige','Časopisi','Ostalo'],
 };
 var VEHICLE=['Automobili','Motocikli','Bicikli'], CLOTHING=['Odeća i obuća'];
+var REAL_ESTATE=['Nekretnine','Nekretnine izdavanje'];
+var EUR_RATE = 117.3;
 
 function init() {
   renderHeader();
@@ -138,9 +140,8 @@ function renderForm(ad) {
     '</div></div>' +
 
     '<div class="form-card"><div class="form-card__head"><div class="form-card__num">4</div><h2>Cena</h2></div><div class="form-card__body">' +
-      '<div class="form-group"><label>Cena (RSD)</label><div class="price-row"><div class="input-with-unit"><input type="number" id="adPrice" value="'+(ad.price||'')+'"'+(ad.is_free?' disabled':'')+'/><span class="input-unit">RSD</span></div>' +
-        '<label class="checkbox-option"><input type="checkbox" id="adFixed"'+(ad.is_fixed?' checked':'')+'/><span>Fiksna</span></label></div></div>' +
-      '<div class="form-group"><label class="checkbox-option" style="padding:12px;border:1.5px solid var(--gray-200);border-radius:9px;display:flex"><input type="checkbox" id="adFree"'+(ad.is_free?' checked':'')+' style="width:17px;height:17px;accent-color:var(--green);flex-shrink:0" onchange="var p=document.getElementById(\'adPrice\');if(this.checked){p.value=0;p.disabled=true}else{p.disabled=false}"/><span style="margin-left:9px"><strong>Poklanjam besplatno</strong></span></label></div>' +
+      '<div class="form-group"><label>Cena (RSD)</label><div class="price-row"><div class="input-with-unit"><input type="number" id="adPrice" value="'+(ad.price||'')+'" oninput="updateEurPriceEdit()"/><span class="input-unit">RSD</span></div>' +
+        '<label class="checkbox-option"><input type="checkbox" id="adFixed"'+(ad.is_fixed?' checked':'')+'/><span>Fiksna</span></label></div><p id="eurPriceHintEdit" style="margin-top:6px;font-size:.85rem;color:var(--gray-500)"></p></div>' +
       '<div class="form-group"><label>Zamena</label><div class="radio-group radio-group--inline">'+
         swaps.map(function(s){return '<label class="radio-option"><input type="radio" name="adSwap" value="'+s+'"'+((ad.swap||'Ne')===s?' checked':'')+'><span class="radio-box"><span class="radio-dot"></span><span><strong>'+s+'</strong></span></span></label>';}).join('')+
       '</div></div>' +
@@ -151,7 +152,7 @@ function renderForm(ad) {
         '<div class="form-group"><label>Grad <span class="req">*</span></label><select id="adCity">'+citiesOpts+'</select></div>' +
         '<div class="form-group"><label>Opština</label><input type="text" id="adMunicipality" value="'+escHtml(ad.municipality||'')+'"/></div>' +
       '</div>' +
-      '<div class="form-group"><label>Preuzimanje</label><div class="checkbox-stack">' +
+      '<div class="form-group" id="deliveryWrap"><label>Preuzimanje</label><div class="checkbox-stack">' +
         ['Lično preuzimanje','Kurirska služba','Pošta'].map(function(d,i){return '<label class="checkbox-option"><input type="checkbox" id="del'+i+'"'+((ad.delivery||[]).indexOf(d)>-1?' checked':'')+'/><span>'+d+'</span></label>';}).join('')+
       '</div></div>' +
     '</div></div>' +
@@ -197,6 +198,16 @@ function onCatChange(preselect) {
   document.getElementById('mileageWrap').style.display=VEHICLE.indexOf(cat)>-1?'block':'none';
   document.getElementById('yearWrap').style.display=VEHICLE.indexOf(cat)>-1?'block':'none';
   document.getElementById('sizeWrap').style.display=CLOTHING.indexOf(cat)>-1?'block':'none';
+  var delWrap = document.getElementById('deliveryWrap');
+  if (delWrap) delWrap.style.display = REAL_ESTATE.indexOf(cat)>-1 ? 'none' : 'block';
+}
+
+function updateEurPriceEdit() {
+  var price = parseFloat(document.getElementById('adPrice').value) || 0;
+  var hint = document.getElementById('eurPriceHintEdit');
+  if (!hint) return;
+  hint.textContent = price > 0 ? '≈ ' + (price/EUR_RATE).toFixed(0) + ' €' : '';
+}
 }
 
 function buildYears(selected) {
@@ -209,7 +220,7 @@ function buildYears(selected) {
 }
 
 function addFiles(files) {
-  var rem=20-editPhotos.length;
+  var rem=15-editPhotos.length;
   files.slice(0,rem).forEach(function(file) {
     var idx=editPhotos.length;
     editPhotos.push({url:URL.createObjectURL(file),uploading:true,isBlob:true});
@@ -255,7 +266,6 @@ function saveEdit() {
   var city=document.getElementById('adCity').value;
   var phone=document.getElementById('adPhone').value.trim();
   var contactName=document.getElementById('adContactName').value.trim();
-  var isFree=document.getElementById('adFree').checked;
   var price=document.getElementById('adPrice').value;
 
   if(!title||title.length<5){showEditError('⚠️ Naslov mora imati min. 5 karaktera.');return;}
@@ -267,7 +277,8 @@ function saveEdit() {
 
   var delivery=[];
   ['Lično preuzimanje','Kurirska služba','Pošta'].forEach(function(d,i){
-    if(document.getElementById('del'+i).checked) delivery.push(d);
+    var el=document.getElementById('del'+i);
+    if(el && el.checked) delivery.push(d);
   });
 
   var patch = {
@@ -276,8 +287,7 @@ function saveEdit() {
     subcategory: document.getElementById('adSubcategory')?document.getElementById('adSubcategory').value:'',
     description: desc,
     condition: (document.querySelector('input[name="adCondition"]:checked')||{}).value||'Polovno',
-    price: isFree?0:(parseFloat(price)||0),
-    is_free: isFree,
+    price: parseFloat(price)||0,
     is_fixed: document.getElementById('adFixed').checked,
     swap: (document.querySelector('input[name="adSwap"]:checked')||{}).value||'Ne',
     city: city,

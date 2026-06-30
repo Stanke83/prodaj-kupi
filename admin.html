@@ -239,7 +239,7 @@ function renderAds(ads) {
       actions = '<button class="btn btn--primary btn--sm" onclick="approveAd(\'' + ad.id + '\')">✅ Odobri ponovo</button>';
     }
 
-    var price = ad.is_free ? 'Besplatno' : Number(ad.price||0).toLocaleString('sr-RS') + ' RSD';
+    var price = Number(ad.price||0).toLocaleString('sr-RS') + ' RSD';
     var date  = new Date(ad.created_at).toLocaleString('sr-RS');
 
     return '<div class="mod-card" id="modcard-' + ad.id + '">' +

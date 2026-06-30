@@ -12,7 +12,7 @@ function photosInit(existingUrls) {
 }
 
 function photosAddFiles(files) {
-  var rem = 20 - photoItems.length;
+  var rem = 15 - photoItems.length;
   Array.from(files).filter(function(f) { return f.type.startsWith('image/'); })
     .slice(0, rem)
     .forEach(function(file) {

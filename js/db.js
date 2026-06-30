@@ -25,11 +25,13 @@ function daysLeft(expiredAt) {
   if (days <= 7)  return '<span style="color:#f59e0b">Ističe za ' + days + ' dana</span>';
   return '<span style="color:var(--gray-400)">Ističe za ' + days + ' dana</span>';
 }
+var EUR_RATE = 117.3; // RSD za 1 EUR
 function fmtPrice(ad) {
-  if (ad.is_free || ad.isFree) return '<span class="price--free">Besplatno 🎁</span>';
   var price = ad.price || 0;
   if (!price) return '<span class="price--ask">Cena na upit</span>';
-  return Number(price).toLocaleString('sr-RS') + ' <small>RSD</small>';
+  var eur = Math.round(price / EUR_RATE);
+  return Number(price).toLocaleString('sr-RS') + ' <small>RSD</small>' +
+    ' <small style="color:var(--gray-400)">(≈ ' + eur.toLocaleString('sr-RS') + ' €)</small>';
 }
 
 function showToast(msg, type) {

@@ -121,7 +121,7 @@ function loadConversations() {
     var convMap = {};
     all.forEach(function(m) {
       var otherEmail = m.from_email === currentUser.email ? m.to_email : m.from_email;
-      var otherName  = m.from_email === currentUser.email ? (m.to_name||m.to_email) : m.from_name;
+      var otherName  = otherEmail; // koristimo email kao fallback ime
       var key = otherEmail + '|' + m.ad_id;
       if (!convMap[key] || new Date(m.created_at) > new Date(convMap[key].last.created_at)) {
         convMap[key] = { otherEmail:otherEmail, otherName:otherName, adId:m.ad_id, adTitle:m.ad_title, last:m,
@@ -131,7 +131,17 @@ function loadConversations() {
     });
 
     var convs = Object.values(convMap).sort(function(a,b){ return new Date(b.last.created_at)-new Date(a.last.created_at); });
-    renderConvList(convs);
+
+    // Dohvati prava imena iz users tabele
+    var emails = convs.map(function(c){ return c.otherEmail; });
+    if (emails.length === 0) { renderConvList(convs); return; }
+    sbFetch('users?email=in.(' + emails.map(encodeURIComponent).join(',') + ')&select=email,name')
+      .then(function(users) {
+        var nameMap = {};
+        (users||[]).forEach(function(u){ nameMap[u.email] = u.name; });
+        convs.forEach(function(c){ if (nameMap[c.otherEmail]) c.otherName = nameMap[c.otherEmail]; });
+        renderConvList(convs);
+      }).catch(function(){ renderConvList(convs); });
   }).catch(function(e){ showToast('Greška: '+e.message,'error'); });
 }
 

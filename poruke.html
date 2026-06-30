@@ -169,6 +169,12 @@ function openConv(otherEmail, otherName, adId, adTitle) {
 
 function loadMessages() {
   if (!currentConv) return;
+
+  // Ne osvežavaj dok korisnik kuca
+  var activeEl = document.activeElement;
+  var input = document.getElementById('msgInput');
+  if (activeEl && activeEl.id === 'msgInput' && input && input.value.trim()) return;
+
   var me    = currentUser.email;
   var other = currentConv.otherEmail;
   var adId  = currentConv.adId;

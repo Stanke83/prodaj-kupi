@@ -63,6 +63,8 @@ img{display:block;max-width:100%}
 .hero{background:linear-gradient(135deg,#0f5c2e 0%,#1a8f4b 55%,#22c068 100%);color:#fff;padding:64px 0}
 .hero__text h1{font-size:2.6rem;font-weight:800;line-height:1.15;margin-bottom:14px}
 .hero__text h1 span{color:#a3f0c0}
+.hero__srbija{display:inline-block;vertical-align:middle;line-height:1}
+.hero__srbija-img{height:3.2rem;vertical-align:middle;mix-blend-mode:screen;display:inline-block;margin-bottom:4px;filter:brightness(1.05) contrast(1.1)}
 .hero__text p{font-size:1.05rem;color:rgba(255,255,255,.85);margin-bottom:28px;max-width:520px}
 .hero__btns{display:flex;gap:12px;flex-wrap:wrap}
 

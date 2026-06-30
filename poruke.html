@@ -36,7 +36,24 @@
     .msg__bubble{padding:10px 14px;border-radius:14px;font-size:.9rem;line-height:1.5;word-break:break-word}
     .msg--out .msg__bubble{background:var(--green);color:#fff;border-bottom-right-radius:4px}
     .msg--in .msg__bubble{background:#fff;color:var(--gray-800);border:1px solid var(--gray-200);border-bottom-left-radius:4px}
-    .msg__time{font-size:.7rem;color:var(--gray-400);margin-top:3px;padding:0 4px}
+    .msg__time{font-size:.7rem;color:var(--gray-400);margin-top:3px;padding:0 4px;display:flex;align-items:center;gap:6px}
+    .msg__edit-btn{font-size:.68rem;color:var(--green);cursor:pointer;text-decoration:underline;background:none;border:none;padding:0}
+    .msg__edited{font-size:.68rem;color:var(--gray-400);font-style:italic}
+    .msg__attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+    .msg__img{width:100px;height:100px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid rgba(255,255,255,.3)}
+    .attach-preview{display:flex;gap:8px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--gray-100)}
+    .attach-preview__img{position:relative;width:60px;height:60px}
+    .attach-preview__img img{width:100%;height:100%;object-fit:cover;border-radius:6px}
+    .attach-preview__rm{position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#ef4444;color:#fff;border-radius:50%;border:none;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center;line-height:1}
+    .attach-btn{height:42px;width:42px;border-radius:10px;background:var(--gray-100);color:var(--gray-600);border:none;cursor:pointer;font-size:1.1rem;flex-shrink:0;transition:background .15s}
+    .attach-btn:hover{background:var(--gray-200)}
+    .edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:999;display:flex;align-items:center;justify-content:center}
+    .edit-box{background:#fff;border-radius:14px;padding:20px;width:90%;max-width:420px;display:flex;flex-direction:column;gap:12px}
+    .edit-box textarea{width:100%;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:.9rem;font-family:var(--font);resize:vertical;min-height:80px;outline:none;box-sizing:border-box}
+    .edit-box textarea:focus{border-color:var(--green)}
+    .edit-box__btns{display:flex;gap:8px;justify-content:flex-end}
+    .img-fullscreen{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:zoom-out}
+    .img-fullscreen img{max-width:95vw;max-height:95vh;border-radius:8px}
     .chat-input{background:#fff;border-top:1px solid var(--gray-200);padding:14px 20px;display:flex;gap:10px;align-items:flex-end}
     .chat-input textarea{flex:1;padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:.93rem;font-family:var(--font);resize:none;outline:none;max-height:120px;line-height:1.5}
     .chat-input textarea:focus{border-color:var(--green)}
@@ -209,13 +226,23 @@ function loadMessages() {
       '<div class="chat-messages" id="chatMsgs">' +
         (msgs.length ? msgs.map(function(m) {
           var isOut = m.from_email === me;
-          return '<div class="msg msg--'+(isOut?'out':'in')+'">' +
-            '<div class="msg__bubble">'+escHtml(m.content)+'</div>' +
-            '<div class="msg__time">'+timeAgo(m.created_at)+'</div>' +
+          var canEdit = isOut && (Date.now() - new Date(m.created_at).getTime() < 5*60*1000);
+          var attachments = m.attachments || [];
+          var attachHtml = attachments.length ? '<div class="msg__attachments">' +
+            attachments.map(function(url){ return '<img class="msg__img" src="'+escHtml(url)+'" onclick="viewImg(\''+escHtml(url)+'\')" loading="lazy"/>'; }).join('') +
+          '</div>' : '';
+          var editedHtml = m.edited_at ? '<span class="msg__edited">(izmenjeno)</span>' : '';
+          var editBtn = canEdit ? '<button class="msg__edit-btn" onclick="startEdit(\''+m.id+'\',\''+escHtml(m.content).replace(/'/g,'&#39;')+'\')">Izmeni</button>' : '';
+          return '<div class="msg msg--'+(isOut?'out':'in')+'" id="msg-'+m.id+'">' +
+            '<div class="msg__bubble">'+escHtml(m.content)+attachHtml+'</div>' +
+            '<div class="msg__time">'+timeAgo(m.created_at)+editedHtml+editBtn+'</div>' +
           '</div>';
         }).join('') : '<div style="text-align:center;color:var(--gray-400);margin:20px 0">Početak razgovora. Pošalji prvu poruku!</div>') +
       '</div>' +
+      '<div id="attachPreview" class="attach-preview" style="display:none"></div>' +
       '<div class="chat-input">' +
+        '<button class="attach-btn" onclick="triggerAttach()" title="Dodaj slike">📎</button>' +
+        '<input type="file" id="attachInput" accept="image/*" multiple style="display:none" onchange="handleAttach(this)"/>' +
         '<textarea id="msgInput" placeholder="Napiši poruku..." rows="1" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendMsg()}" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\'"></textarea>' +
         '<button onclick="sendMsg()" title="Pošalji">➤</button>' +
       '</div>';
@@ -244,36 +271,140 @@ function loadMessages() {
   });
 }
 
+var pendingAttachments = []; // {url, file}
+
+function triggerAttach() {
+  var inp = document.getElementById('attachInput');
+  if (inp) inp.click();
+}
+
+function handleAttach(input) {
+  var files = Array.from(input.files);
+  var current = pendingAttachments.length;
+  if (current >= 3) { showToast('Maksimalno 3 slike po poruci.','error'); return; }
+  var allowed = 3 - current;
+  files = files.slice(0, allowed);
+  files.forEach(function(f) {
+    if (f.size > 2 * 1024 * 1024) { showToast(f.name + ' je veće od 2MB.','error'); return; }
+    if (!f.type.startsWith('image/')) { showToast('Samo slike su dozvoljene.','error'); return; }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      pendingAttachments.push({dataUrl: e.target.result, file: f});
+      renderAttachPreview();
+    };
+    reader.readAsDataURL(f);
+  });
+  input.value = '';
+}
+
+function renderAttachPreview() {
+  var wrap = document.getElementById('attachPreview');
+  if (!wrap) return;
+  if (!pendingAttachments.length) { wrap.style.display='none'; wrap.innerHTML=''; return; }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = pendingAttachments.map(function(a, i) {
+    return '<div class="attach-preview__img"><img src="'+a.dataUrl+'"/><button class="attach-preview__rm" onclick="removeAttach('+i+')">✕</button></div>';
+  }).join('');
+}
+
+function removeAttach(i) {
+  pendingAttachments.splice(i, 1);
+  renderAttachPreview();
+}
+
+function viewImg(url) {
+  var overlay = document.createElement('div');
+  overlay.className = 'img-fullscreen';
+  overlay.innerHTML = '<img src="'+escHtml(url)+'"/>';
+  overlay.onclick = function(){ overlay.remove(); };
+  document.body.appendChild(overlay);
+}
+
+function startEdit(msgId, currentContent) {
+  var existing = document.getElementById('editOverlay');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'editOverlay';
+  overlay.className = 'edit-overlay';
+  overlay.innerHTML =
+    '<div class="edit-box">' +
+      '<strong style="font-size:.95rem">Izmeni poruku</strong>' +
+      '<textarea id="editInput">'+escHtml(currentContent)+'</textarea>' +
+      '<div class="edit-box__btns">' +
+        '<button class="btn btn--gray btn--sm" onclick="document.getElementById(\'editOverlay\').remove()">Otkaži</button>' +
+        '<button class="btn btn--primary btn--sm" onclick="saveEdit(\''+msgId+'\')">Sačuvaj</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  var ta = document.getElementById('editInput');
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = ta.value.length;
+}
+
+function saveEdit(msgId) {
+  var ta = document.getElementById('editInput');
+  if (!ta) return;
+  var newContent = ta.value.trim();
+  if (!newContent) { showToast('Poruka ne može biti prazna.','error'); return; }
+  sbFetch('messages?id=eq.'+msgId, {
+    method: 'PATCH',
+    body: { content: newContent, edited_at: new Date().toISOString() }
+  }).then(function() {
+    document.getElementById('editOverlay').remove();
+    loadMessages();
+    showToast('Poruka izmenjena.','success');
+  }).catch(function(e){ showToast('Greška: '+e.message,'error'); });
+}
+
 function sendMsg() {
   var input = document.getElementById('msgInput');
   if (!input) return;
   var content = input.value.trim();
-  if (!content) return;
+  if (!content && !pendingAttachments.length) return;
   input.value = '';
   input.style.height = 'auto';
 
-  var msg = {
-    from_email: currentUser.email,
-    from_name:  currentUser.name,
-    to_email:   currentConv.otherEmail,
-    to_name:    currentConv.otherName || currentConv.otherEmail,
-    ad_id:      currentConv.adId,
-    ad_title:   currentConv.adTitle,
-    content:    content
-  };
+  var attachsCopy = pendingAttachments.slice();
+  pendingAttachments = [];
+  renderAttachPreview();
 
-  sbFetch('messages', { method:'POST', prefer:'return=representation', body:msg }).then(function() {
+  var uploadPromise = attachsCopy.length ? (async function() {
+    var urls = [];
+    for (var i = 0; i < attachsCopy.length; i++) {
+      var a = attachsCopy[i];
+      var formData = new FormData();
+      formData.append('file', a.file);
+      formData.append('upload_preset', 'prodajkupi_unsigned');
+      formData.append('folder', 'messages');
+      var r = await fetch('https://api.cloudinary.com/v1_1/dmww01npw/image/upload', {method:'POST',body:formData});
+      var data = await r.json();
+      if (data.secure_url) urls.push(data.secure_url);
+    }
+    return urls;
+  })() : Promise.resolve([]);
+
+  uploadPromise.then(function(urls) {
+    var msg = {
+      from_email:  currentUser.email,
+      from_name:   currentUser.name,
+      to_email:    currentConv.otherEmail,
+      to_name:     currentConv.otherName || currentConv.otherEmail,
+      ad_id:       currentConv.adId,
+      ad_title:    currentConv.adTitle,
+      content:     content || '📎',
+      attachments: urls
+    };
+    return sbFetch('messages', { method:'POST', prefer:'return=representation', body:msg });
+  }).then(function() {
     loadMessages();
     loadConversations();
-    // Email notifikacija primaocu
     sendEmail(currentConv.otherEmail,
       '💬 Nova poruka od ' + currentUser.name + ' — ' + currentConv.adTitle,
-      EmailTemplates.newMessage(currentConv.otherName, currentUser.name, currentConv.adTitle, content).html
+      EmailTemplates.newMessage(currentConv.otherName, currentUser.name, currentConv.adTitle, content||'[slika]').html
     );
-    // In-app notifikacija
     Notifs.add(currentConv.otherEmail, 'new_message',
       'Nova poruka od ' + currentUser.name,
-      content.slice(0,80),
+      (content||'[slika]').slice(0,80),
       'poruke.html?adId='+encodeURIComponent(currentConv.adId)+'&to='+encodeURIComponent(currentUser.email)+'&toName='+encodeURIComponent(currentUser.name)+'&adTitle='+encodeURIComponent(currentConv.adTitle)
     );
   }).catch(function(e){ showToast('Greška: '+e.message,'error'); });

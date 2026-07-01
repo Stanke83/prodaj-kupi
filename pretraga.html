@@ -134,21 +134,31 @@ function renderResults() {
   var filters = getFilters();
   SB.getAds(filters).then(function(ads) {
     ads = ads || [];
+    var total = ads._total;
+    var perPage = filters.perPage || 16;
+    var totalPages = total ? Math.ceil(total / perPage) : null;
+
     var q = filters.search ? ' za "'+filters.search+'"' : '';
-    document.getElementById('resultInfo').innerHTML = '<strong>'+ads.length+'</strong> oglasa'+q+(ads.length===16?' +':'');
+    var countStr = total != null ? '<strong>'+total+'</strong>' : '<strong>'+ads.length+(ads.length===perPage?'+':'')+'</strong>';
+    document.getElementById('resultInfo').innerHTML = countStr + ' oglasa' + q;
 
     if (!ads.length) { document.getElementById('emptyState').style.display='block'; return; }
     document.getElementById('resultsGrid').innerHTML = ads.map(function(ad){ return adCard(ad); }).join('');
 
-    // Paginacija — ako je vraćeno 16, ima još
     var pag = document.getElementById('pagination');
-    var prevBtn = currentPage > 1
-      ? '<button class="pagination__btn" onclick="goPage('+(currentPage-1)+')">‹ Prethodna</button>' : '';
-    var nextBtn = ads.length === 16
-      ? '<button class="pagination__btn" onclick="goPage('+(currentPage+1)+')">Sledeća ›</button>' : '';
-    var cur = '<button class="pagination__btn active">'+currentPage+'</button>';
-    pag.innerHTML = prevBtn + cur + nextBtn;
-  }).catch(function(e){
+    if (!totalPages || totalPages <= 1) { pag.innerHTML = ''; return; }
+    var prevBtn = currentPage > 1 ? '<button class="pagination__btn" onclick="goPage('+(currentPage-1)+')">‹ Prethodna</button>' : '';
+    var nextBtn = currentPage < totalPages ? '<button class="pagination__btn" onclick="goPage('+(currentPage+1)+')">Sledeća ›</button>' : '';
+    var pages = '';
+    var start = Math.max(1, currentPage - 2);
+    var end2  = Math.min(totalPages, currentPage + 2);
+    if (start > 1) pages += '<button class="pagination__btn" onclick="goPage(1)">1</button>'+(start>2?'<span style="padding:0 4px">…</span>':'');
+    for (var i = start; i <= end2; i++) {
+      pages += '<button class="pagination__btn'+(i===currentPage?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
+    }
+    if (end2 < totalPages) pages += (end2<totalPages-1?'<span style="padding:0 4px">…</span>':'')+'<button class="pagination__btn" onclick="goPage('+totalPages+')">'+totalPages+'</button>';
+    pag.innerHTML = prevBtn + pages + nextBtn;
+    }).catch(function(e){
     document.getElementById('resultInfo').textContent = 'Greška: ' + e.message;
   });
 }

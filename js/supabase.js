@@ -131,21 +131,46 @@ var SB = {
   // ===== ADS — javni (samo approved) =====
   getAds: function(filters) {
     filters = filters || {};
-    var q = 'ads?status=eq.approved&expired_at=gt.' + new Date().toISOString() + '&order=created_at.desc';
+    var sort = filters.sort || 'newest';
+    var orderClause = {
+      'newest':     'created_at.desc',
+      'oldest':     'created_at.asc',
+      'price_asc':  'price.asc',
+      'price_desc': 'price.desc'
+    }[sort] || 'created_at.desc';
+
+    var q = 'ads?status=eq.approved&expired_at=gt.' + new Date().toISOString() + '&order=' + orderClause;
     if (filters.category)  q += '&category=eq.'   + encodeURIComponent(filters.category);
     if (filters.city)      q += '&city=eq.'        + encodeURIComponent(filters.city);
     if (filters.condition) q += '&condition=eq.'   + encodeURIComponent(filters.condition);
     if (filters.userEmail) q += '&user_email=eq.'  + encodeURIComponent(filters.userEmail);
     if (filters.search) {
+      // Pretraga po naslovu I opisu I gradu
       var s = encodeURIComponent('%' + filters.search + '%');
-      q += '&or=(title.ilike.' + s + ',description.ilike.' + s + ')';
+      q += '&or=(title.ilike.' + s + ',description.ilike.' + s + ',city.ilike.' + s + ')';
     }
-    if (filters.minPrice != null) q += '&price=gte.' + filters.minPrice;
-    if (filters.maxPrice != null) q += '&price=lte.' + filters.maxPrice;
+    if (filters.minPrice != null && filters.minPrice !== '') q += '&price=gte.' + filters.minPrice;
+    if (filters.maxPrice != null && filters.maxPrice !== '') q += '&price=lte.' + filters.maxPrice;
     var page    = filters.page    || 1;
     var perPage = filters.perPage || 16;
     q += '&limit=' + perPage + '&offset=' + ((page - 1) * perPage);
-    return sbFetch(q).then(function(r){ return r || []; });
+
+    // Dohvati i ukupan broj za paginaciju
+    var countQ = q.replace('&limit=' + perPage + '&offset=' + ((page-1)*perPage), '') + '&limit=1';
+    return Promise.all([
+      sbFetch(q),
+      fetch(
+        'https://iyuyhbgampbwkxlbdgvi.supabase.co/rest/v1/' + countQ.replace('&order='+orderClause,'') + '&select=count',
+        { headers: {
+          'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY,
+          'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0'
+        }}
+      ).then(function(r){ return parseInt(r.headers.get('content-range').split('/')[1]) || 0; }).catch(function(){ return null; })
+    ]).then(function(results) {
+      var ads = results[0] || [];
+      ads._total = results[1];
+      return ads;
+    });
   },
 
   // Vlasnik vidi SVE svoje oglase (i pending i rejected)

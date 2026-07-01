@@ -251,6 +251,10 @@ img{display:block;max-width:100%}
 .my-ad-card__title{font-size:.9rem;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .my-ad-card__price{font-size:.93rem;font-weight:700;color:var(--green);margin-bottom:6px}
 .my-ad-card__meta{font-size:.75rem;color:var(--gray-400)}
+.expiry-badge{font-size:.75rem;font-weight:600;padding:3px 8px;border-radius:6px;margin-top:6px;display:inline-block}
+.expiry-badge--urgent{background:#fef2f2;color:#dc2626;border:1px solid #fca5a5}
+.expiry-badge--warning{background:#fffbeb;color:#d97706;border:1px solid #fcd34d}
+.expiry-badge--expired{background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db}
 .my-ad-card__actions{display:flex;gap:7px;flex-shrink:0;align-items:flex-start}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600}
 .badge--active{background:var(--green-light);color:var(--green)}

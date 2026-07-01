@@ -146,12 +146,26 @@ function loadMyAds() {
     list.innerHTML = ads.map(function(ad) {
       var photos = ad.photos || [];
       var thumb = photos.length ? '<img src="'+photos[0]+'" alt="foto"/>' : (EMOJI[ad.category]||'📦');
+      var now = new Date();
+      var exp = new Date(ad.expired_at);
+      var daysLeft = Math.ceil((exp - now) / (24*60*60*1000));
+      var expiryBadge = '';
+      if (ad.status === 'approved') {
+        if (daysLeft <= 0) {
+          expiryBadge = '<div class="expiry-badge expiry-badge--expired">⛔ Istekao</div>';
+        } else if (daysLeft <= 3) {
+          expiryBadge = '<div class="expiry-badge expiry-badge--urgent">🔴 Ističe za '+daysLeft+(daysLeft===1?' dan':' dana')+'</div>';
+        } else if (daysLeft <= 7) {
+          expiryBadge = '<div class="expiry-badge expiry-badge--warning">🟡 Ističe za '+daysLeft+' dana</div>';
+        }
+      }
       return '<div class="my-ad-card">' +
         '<div class="my-ad-card__thumb">' + thumb + '</div>' +
         '<div class="my-ad-card__body">' +
           '<div class="my-ad-card__title">' + escHtml(ad.title) + '</div>' +
           '<div class="my-ad-card__price">' + Number(ad.price||0).toLocaleString('sr-RS')+' RSD' + '</div>' +
           '<div class="my-ad-card__meta">📍 ' + escHtml(ad.city||'') + ' · ' + timeAgo(ad.created_at) + '</div>' +
+          expiryBadge +
         '</div>' +
         '<div class="my-ad-card__actions">' +
           '<a href="uredi-oglas.html?id=' + ad.id + '" class="btn btn--outline btn--sm">✏️ Uredi</a>' +

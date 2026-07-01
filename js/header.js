@@ -20,6 +20,8 @@ function renderHeader() {
       }).catch(function(){});
     // Notif bell
     if (typeof renderNotifBell === 'function') renderNotifBell(user.email);
+    // Proveri oglase koji ističu
+    checkExpiringAds(user);
   } else {
     el.innerHTML =
       '<button class="btn btn--outline btn--sm" onclick="openLoginModal()">Prijavi se</button>' +
@@ -217,4 +219,49 @@ function handleResetPassword() {
       if(e){e.style.color='var(--green)';e.textContent='✅ Lozinka promenjena — prijavi se.';}
     },400);
   }).catch(function(e){err.textContent=e.message;setBtnLoading('resetNewBtn',false,'Sačuvaj novu lozinku');});
+}
+
+// ===== PROVERA OGLASA KOJI ISTIČU =====
+function checkExpiringAds(user) {
+  if (!user || !sbFetch) return;
+  // Samo jednom po sesiji (čuvamo u sessionStorage)
+  var key = 'pk_expiry_check_' + new Date().toDateString();
+  if (sessionStorage.getItem(key)) return;
+  sessionStorage.setItem(key, '1');
+
+  var now = new Date();
+  var in7 = new Date(now.getTime() + 7*24*60*60*1000).toISOString();
+  var in3 = new Date(now.getTime() + 3*24*60*60*1000).toISOString();
+
+  sbFetch('ads?user_email=eq.' + encodeURIComponent(user.email) +
+    '&status=eq.approved' +
+    '&expired_at=lt.' + in7 +
+    '&expired_at=gt.' + now.toISOString() +
+    '&select=id,title,expired_at&limit=20'
+  ).then(function(ads) {
+    if (!ads || !ads.length) return;
+    ads.forEach(function(ad) {
+      var exp = new Date(ad.expired_at);
+      var daysLeft = Math.ceil((exp - now) / (24*60*60*1000));
+      var urgency = daysLeft <= 3 ? '🔴' : '🟡';
+      var msg = urgency + ' Oglas "' + ad.title.slice(0,40) + (ad.title.length>40?'…':'') +
+        '" ističe za ' + daysLeft + (daysLeft===1?' dan':' dana') + '.';
+
+      // Dodaj in-app notifikaciju samo ako već ne postoji slična
+      var notifKey = 'expiry_notif_' + ad.id + '_' + daysLeft;
+      if (localStorage.getItem(notifKey)) return;
+      localStorage.setItem(notifKey, '1');
+
+      if (typeof Notifs !== 'undefined') {
+        Notifs.add(
+          user.email,
+          'ad_expiring',
+          daysLeft <= 3 ? '⚠️ Oglas uskoro ističe!' : '📅 Oglas ističe za nedelju dana',
+          msg,
+          'profil.html#oglasi'
+        );
+      }
+    });
+    if (typeof renderNotifBell === 'function') renderNotifBell(user.email);
+  }).catch(function(){});
 }

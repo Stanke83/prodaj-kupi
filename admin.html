@@ -99,7 +99,37 @@
       <button class="admin-tab" onclick="loadTab('rejected',this)">Odbijeni <span class="tab-badge tab-badge--gray" id="rejectedBadge">0</span></button>
     </div>
 
+    <!-- FILTER BAR -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 0;align-items:center">
+      <input type="text" id="adminSearch" placeholder="🔍 Pretraži po naslovu, emailu..." oninput="filterAndRender()"
+        style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:.88rem;font-family:var(--font)"/>
+      <select id="adminCatFilter" onchange="filterAndRender()"
+        style="padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:.88rem;background:#fff">
+        <option value="">Sve kategorije</option>
+        <option>Elektronika</option><option>Automobili</option><option>Nekretnine</option>
+        <option>Odeća i obuća</option><option>Mobilni telefoni</option><option>Kompjuteri</option>
+        <option>Nameštaj</option><option>Sport i rekreacija</option><option>Ostalo</option>
+      </select>
+      <select id="adminSortFilter" onchange="filterAndRender()"
+        style="padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:.88rem;background:#fff">
+        <option value="newest">Najnoviji</option>
+        <option value="oldest">Najstariji</option>
+      </select>
+      <button class="btn btn--sm btn--gray" onclick="clearAdminFilters()">Resetuj</button>
+    </div>
+
+    <!-- BULK ACTIONS -->
+    <div id="bulkBar" style="display:none;gap:10px;align-items:center;padding:10px 14px;background:#fffbeb;border-radius:10px;border:1px solid #fcd34d;margin-bottom:10px;flex-wrap:wrap">
+      <label style="font-size:.88rem;font-weight:600;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"/> Izaberi sve
+      </label>
+      <span id="selectedCount" style="font-size:.85rem;color:var(--gray-500)">0 izabrano</span>
+      <button class="btn btn--sm btn--primary" onclick="bulkApprove()">✅ Odobri izabrane</button>
+      <button class="btn btn--sm btn--danger" onclick="bulkReject()">❌ Odbij izabrane</button>
+    </div>
+
     <div id="adsList"></div>
+    <div id="adminPagination" style="display:flex;justify-content:center;gap:6px;padding:20px 0;flex-wrap:wrap"></div>
   </div>
 </div>
 
@@ -194,11 +224,106 @@ function renderStats() {
   document.getElementById('statTotal').textContent    = allAds.pending.length + allAds.approved.length + allAds.rejected.length;
 }
 
+var ADMIN_PAGE_SIZE = 10;
+var adminCurrentPage = 1;
+var filteredAds = [];
+
 function loadTab(tab, el) {
   currentTab = tab;
+  adminCurrentPage = 1;
   document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
   el.classList.add('active');
-  renderAds(allAds[tab]);
+  document.getElementById('bulkBar').style.display = tab === 'pending' ? 'flex' : 'none';
+  document.getElementById('adminSearch').value = '';
+  document.getElementById('adminCatFilter').value = '';
+  filterAndRender();
+}
+
+function filterAndRender() {
+  adminCurrentPage = 1;
+  var search = (document.getElementById('adminSearch').value || '').toLowerCase();
+  var cat    = document.getElementById('adminCatFilter').value;
+  var sort   = document.getElementById('adminSortFilter').value;
+  var ads    = (allAds[currentTab] || []).slice();
+
+  if (search) ads = ads.filter(function(a){
+    return (a.title||'').toLowerCase().includes(search) ||
+           (a.user_email||'').toLowerCase().includes(search) ||
+           (a.user_name||'').toLowerCase().includes(search);
+  });
+  if (cat) ads = ads.filter(function(a){ return a.category === cat; });
+  ads.sort(function(a,b){
+    return sort === 'oldest'
+      ? new Date(a.created_at) - new Date(b.created_at)
+      : new Date(b.created_at) - new Date(a.created_at);
+  });
+  filteredAds = ads;
+  renderPage();
+}
+
+function clearAdminFilters() {
+  document.getElementById('adminSearch').value = '';
+  document.getElementById('adminCatFilter').value = '';
+  document.getElementById('adminSortFilter').value = 'newest';
+  filterAndRender();
+}
+
+function renderPage() {
+  var start = (adminCurrentPage - 1) * ADMIN_PAGE_SIZE;
+  var page  = filteredAds.slice(start, start + ADMIN_PAGE_SIZE);
+  renderAds(page);
+  renderAdminPagination();
+}
+
+function renderAdminPagination() {
+  var total = filteredAds.length;
+  var pages = Math.ceil(total / ADMIN_PAGE_SIZE);
+  var pag   = document.getElementById('adminPagination');
+  if (pages <= 1) { pag.innerHTML = ''; return; }
+  var html = '';
+  for (var i = 1; i <= pages; i++) {
+    html += '<button onclick="adminGoPage('+i+')" style="padding:6px 12px;border-radius:8px;border:1.5px solid '+(i===adminCurrentPage?'var(--green)':'var(--gray-200)')+';background:'+(i===adminCurrentPage?'var(--green)':'#fff')+';color:'+(i===adminCurrentPage?'#fff':'var(--gray-700)')+';cursor:pointer;font-size:.85rem">'+i+'</button>';
+  }
+  pag.innerHTML = '<span style="font-size:.85rem;color:var(--gray-500);margin-right:8px">'+filteredAds.length+' oglasa</span>' + html;
+}
+
+function adminGoPage(p) {
+  adminCurrentPage = p;
+  renderPage();
+  window.scrollTo(0, 300);
+}
+
+// Bulk akcije
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.ad-checkbox').forEach(function(c){ c.checked = cb.checked; });
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  var n = document.querySelectorAll('.ad-checkbox:checked').length;
+  document.getElementById('selectedCount').textContent = n + ' izabrano';
+}
+
+function getSelectedIds() {
+  return Array.from(document.querySelectorAll('.ad-checkbox:checked')).map(function(c){ return c.dataset.id; });
+}
+
+async function bulkApprove() {
+  var ids = getSelectedIds();
+  if (!ids.length) { showToast('Nisi izabrao/la nijedan oglas.', 'error'); return; }
+  if (!confirm('Odobriti ' + ids.length + ' oglasa?')) return;
+  for (var id of ids) await SB.approveAd(id);
+  showToast('✅ ' + ids.length + ' oglasa odobreno!', 'success');
+  await loadAllAds(); renderStats(); filterAndRender();
+}
+
+async function bulkReject() {
+  var ids = getSelectedIds();
+  if (!ids.length) { showToast('Nisi izabrao/la nijedan oglas.', 'error'); return; }
+  if (!confirm('Odbiti ' + ids.length + ' oglasa?')) return;
+  for (var id of ids) await SB.rejectAd(id, 'Bulk odbijanje od strane admina');
+  showToast('❌ ' + ids.length + ' oglasa odbijeno!', 'error');
+  await loadAllAds(); renderStats(); filterAndRender();
 }
 
 function renderAds(ads) {
@@ -213,6 +338,9 @@ function renderAds(ads) {
     var mainPhoto = photos.length
       ? '<img src="' + photos[0] + '" alt="foto" onclick="openAdLightbox(' + JSON.stringify(photos).replace(/"/g,"'") + ',0)"/>'
       : '<div style="width:180px;height:130px;background:var(--gray-100);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2.5rem">' + (EMOJI[ad.category]||'📦') + '</div>';
+    var checkboxHtml = currentTab === 'pending'
+      ? '<label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:.85rem;font-weight:600"><input type="checkbox" class="ad-checkbox" data-id="'+ad.id+'" onchange="updateSelectedCount()"/> Izaberi</label>'
+      : '';
 
     var thumbs = photos.length > 1
       ? '<div class="mod-card__thumbs">' +
@@ -244,6 +372,7 @@ function renderAds(ads) {
 
     return '<div class="mod-card" id="modcard-' + ad.id + '">' +
       '<div class="mod-card__photos">' +
+        checkboxHtml +
         '<div class="mod-card__main-img">' + mainPhoto + '</div>' +
         thumbs +
         '<div style="font-size:.72rem;color:var(--gray-400);margin-top:4px">' + photos.length + ' slika</div>' +

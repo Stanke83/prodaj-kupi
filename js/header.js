@@ -48,7 +48,7 @@ function injectAuthModals() {
       '<div class="form-group"><label>Email <span class="req">*</span></label>' +
         '<input type="email" id="regEmail" placeholder="email@primer.com" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email"/></div>' +
       '<div class="form-group"><label>Lozinka <span class="req">*</span></label>' +
-        '<input type="password" id="regPass" placeholder="Min. 6 karaktera" autocomplete="new-password"/></div>' +
+        '<div style="position:relative"><input type="password" id="regPass" placeholder="Min. 6 karaktera" autocomplete="new-password" style="padding-right:40px"/><button type="button" onclick="togglePass(\'regPass\',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray-400);font-size:.9rem">👁</button></div></div>' +
       '<div class="form-group"><label>Grad</label>' +
         '<select id="regCity"><option value="">— Izaberi grad —</option>' + ALL_CITIES.map(function(c){return '<option>'+c+'</option>';}).join('') + '</select></div>' +
       '<div class="form-group"><label>Telefon</label>' +
@@ -76,7 +76,7 @@ function injectAuthModals() {
           '<label style="margin:0">Lozinka</label>' +
           '<a href="#" onclick="event.preventDefault();switchModal(\'loginModal\',\'resetModal\')" style="font-size:.8rem;color:var(--green);font-weight:600">Zaboravljena lozinka?</a>' +
         '</div>' +
-        '<input type="password" id="loginPass" placeholder="Lozinka" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')handleLogin()"/>' +
+        '<div style="position:relative"><input type="password" id="loginPass" placeholder="Lozinka" autocomplete="current-password" style="padding-right:40px" onkeydown="if(event.key===\'Enter\')handleLogin()"/><button type="button" onclick="togglePass(\'loginPass\',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray-400);font-size:.9rem">👁</button></div>' +
       '</div>' +
       '<div id="loginError" class="form-error"></div>' +
       '<button class="btn btn--primary btn--full" id="loginBtn" onclick="handleLogin()">Prijavi se</button>' +
@@ -147,39 +147,83 @@ function handleRegister() {
   var phone = document.getElementById('regPhone').value.trim();
   var err   = document.getElementById('regError');
   err.textContent = '';
-  if (!name||!email||!pass){err.textContent='Popuni obavezna polja.';return;}
-  if (pass.length<6){err.textContent='Lozinka mora imati min. 6 karaktera.';return;}
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){err.textContent='Unesi ispravnu email adresu.';return;}
-  setBtnLoading('regBtn',true,'Registruj se besplatno');
-  SB.register(name,email,pass,city,phone).then(function(user){
+  err.style.color = '#dc2626';
+
+  // Validacija sa jasnim porukama
+  if (!name) { err.textContent = '⚠️ Unesi svoje ime i prezime.'; document.getElementById('regName').focus(); return; }
+  if (!email) { err.textContent = '⚠️ Unesi email adresu.'; document.getElementById('regEmail').focus(); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = '⚠️ Email adresa nije ispravna (npr. ime@gmail.com).'; document.getElementById('regEmail').focus(); return; }
+  if (!pass) { err.textContent = '⚠️ Unesi lozinku.'; document.getElementById('regPass').focus(); return; }
+  if (pass.length < 6) { err.textContent = '⚠️ Lozinka mora imati najmanje 6 karaktera.'; document.getElementById('regPass').focus(); return; }
+
+  setBtnLoading('regBtn', true, 'Registruj se besplatno');
+  SB.register(name, email, pass, city, phone).then(function(user) {
     closeAllModals(); renderHeader();
-    showToast('Dobrodošao/la, '+user.name.split(' ')[0]+'! 🎉');
-    var next=new URLSearchParams(window.location.search).get('next');
-    if(next) window.location.href=next;
-  }).catch(function(e){
-    err.textContent=e.message;
-    setBtnLoading('regBtn',false,'Registruj se besplatno');
+    showToast('Dobrodošao/la, ' + user.name.split(' ')[0] + '! 🎉');
+    var next = new URLSearchParams(window.location.search).get('next');
+    if (next) window.location.href = next;
+  }).catch(function(e) {
+    var msg = e.message || '';
+    // Pretvori tehničke greške u srpske poruke
+    if (msg.includes('već postoji') || msg.includes('duplicate') || msg.includes('unique')) {
+      err.innerHTML = '⚠️ Nalog sa ovom email adresom već postoji. <a href="#" onclick="switchToLogin(event)" style="color:var(--green);text-decoration:underline">Prijavi se</a>.';
+    } else if (msg.includes('network') || msg.includes('server') || msg.includes('fetch')) {
+      err.textContent = '⚠️ Problem sa vezom. Proveri internet i pokušaj ponovo.';
+    } else {
+      err.textContent = '⚠️ ' + msg;
+    }
+    setBtnLoading('regBtn', false, 'Registruj se besplatno');
   });
+}
+
+function switchToLogin(e) {
+  e.preventDefault();
+  closeAllModals();
+  setTimeout(openLoginModal, 150);
 }
 
 function handleLogin() {
   var email = document.getElementById('loginEmail').value.trim().toLowerCase().replace(/\s+/g,'');
-  var pass  = document.getElementById('loginPass').value.trim();
+  var pass  = document.getElementById('loginPass').value;
   var err   = document.getElementById('loginError');
-  err.style.color=''; err.textContent='';
-  if(!email||!pass){err.textContent='Unesi email i lozinku.';return;}
-  setBtnLoading('loginBtn',true,'Prijavi se');
-  SB.login(email,pass).then(function(user){
+  err.style.color = '#dc2626';
+  err.textContent = '';
+
+  if (!email) { err.textContent = '⚠️ Unesi email adresu.'; document.getElementById('loginEmail').focus(); return; }
+  if (!pass)  { err.textContent = '⚠️ Unesi lozinku.'; document.getElementById('loginPass').focus(); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = '⚠️ Email adresa nije ispravna.'; return; }
+
+  setBtnLoading('loginBtn', true, 'Prijavi se');
+  SB.login(email, pass).then(function(user) {
     closeAllModals(); renderHeader();
-    showToast('Dobrodošli, '+user.name.split(' ')[0]+'!');
-    var next=new URLSearchParams(window.location.search).get('next');
-    if(next) window.location.href=next;
-    else if(typeof renderHome==='function') renderHome();
-    else if(typeof renderResults==='function') renderResults();
-  }).catch(function(e){
-    err.textContent=e.message;
-    setBtnLoading('loginBtn',false,'Prijavi se');
+    showToast('Dobrodošli, ' + user.name.split(' ')[0] + '!');
+    var next = new URLSearchParams(window.location.search).get('next');
+    if (next) window.location.href = next;
+    else if (typeof renderHome === 'function') renderHome();
+    else if (typeof renderResults === 'function') renderResults();
+  }).catch(function(e) {
+    var msg = e.message || '';
+    if (msg.includes('Pogrešan') || msg.includes('ne postoji') || msg.includes('password') || msg.includes('invalid')) {
+      err.innerHTML = '⚠️ Pogrešan email ili lozinka. <a href="#" onclick="openResetModal(event)" style="color:var(--green);text-decoration:underline">Zaboravio/la si lozinku?</a>';
+    } else if (msg.includes('network') || msg.includes('server') || msg.includes('fetch')) {
+      err.textContent = '⚠️ Problem sa vezom. Proveri internet i pokušaj ponovo.';
+    } else {
+      err.textContent = '⚠️ ' + msg;
+    }
+    setBtnLoading('loginBtn', false, 'Prijavi se');
+    // Treći neuspešan pokušaj — ponudi reset lozinke
+    var attempts = parseInt(sessionStorage.getItem('login_attempts') || '0') + 1;
+    sessionStorage.setItem('login_attempts', attempts);
+    if (attempts >= 3) {
+      err.innerHTML += '<br/><small style="color:var(--gray-500)">Previše pokušaja. <a href="#" onclick="openResetModal(event)" style="color:var(--green)">Resetuj lozinku</a>.</small>';
+    }
   });
+}
+
+function openResetModal(e) {
+  if (e) e.preventDefault();
+  closeAllModals();
+  setTimeout(function(){ openModal('resetModal'); }, 150);
 }
 
 var _resetEmail=null;
@@ -264,4 +308,16 @@ function checkExpiringAds(user) {
     });
     if (typeof renderNotifBell === 'function') renderNotifBell(user.email);
   }).catch(function(){});
+}
+
+function togglePass(fieldId, btn) {
+  var inp = document.getElementById(fieldId);
+  if (!inp) return;
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    inp.type = 'password';
+    btn.textContent = '👁';
+  }
 }

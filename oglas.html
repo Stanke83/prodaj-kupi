@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Oglas — ProdajKupi</title>
+  <meta id="metaDesc" name="description" content="Besplatni oglasi u Srbiji"/>
+  <meta id="ogTitle" property="og:title" content="ProdajKupi"/>
+  <meta id="ogDesc" property="og:description" content="Besplatni oglasi u Srbiji"/>
+  <meta id="ogImage" property="og:image" content=""/>
+  <meta property="og:type" content="website"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .oglas-wrap{max-width:900px;margin:0 auto;padding:24px 16px}
+    .oglas-grid{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+    .oglas-photos{position:sticky;top:76px}
+    .oglas-main-img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:14px;cursor:zoom-in;background:var(--gray-100)}
+    .oglas-main-img-wrap{position:relative;border-radius:14px;overflow:hidden;background:var(--gray-100)}
+    .oglas-main-emoji{width:100%;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;font-size:5rem;border-radius:14px;background:var(--gray-100)}
+    .oglas-thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    .oglas-thumbs img{width:72px;height:72px;object-fit:cover;border-radius:8px;cursor:pointer;border:2.5px solid transparent;transition:border-color .15s}
+    .oglas-thumbs img.active{border-color:var(--green)}
+    .oglas-share{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+    .share-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:600;transition:opacity .15s}
+    .share-btn:hover{opacity:.85}
+    .share-btn--wa{background:#25D366;color:#fff}
+    .share-btn--vb{background:#7360F2;color:#fff}
+    .share-btn--copy{background:var(--gray-100);color:var(--gray-700)}
+    .oglas-info{background:#fff;border-radius:14px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+    .oglas-category{font-size:.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+    .oglas-title{font-size:1.5rem;font-weight:800;line-height:1.3;margin-bottom:12px;color:var(--gray-900)}
+    .oglas-price{font-size:1.8rem;font-weight:800;color:var(--green);margin-bottom:4px}
+    .oglas-price-eur{font-size:.95rem;color:var(--gray-400);margin-bottom:16px}
+    .oglas-seller{display:flex;align-items:center;gap:12px;padding:14px 0;border-top:1px solid var(--gray-100);border-bottom:1px solid var(--gray-100);margin-bottom:16px}
+    .oglas-seller__avatar{width:44px;height:44px;background:var(--green);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;flex-shrink:0}
+    .oglas-seller__info{flex:1}
+    .oglas-seller__info strong{display:block;font-size:.95rem}
+    .oglas-seller__info span{font-size:.78rem;color:var(--gray-400)}
+    .oglas-attrs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+    .oglas-attr{background:var(--gray-50);border-radius:8px;padding:10px 12px}
+    .oglas-attr label{font-size:.72rem;color:var(--gray-400);font-weight:600;text-transform:uppercase;display:block;margin-bottom:2px}
+    .oglas-attr span{font-size:.88rem;font-weight:600;color:var(--gray-800)}
+    .oglas-desc{font-size:.92rem;line-height:1.7;color:var(--gray-700);margin-bottom:20px;white-space:pre-wrap}
+    .oglas-contact{background:var(--green-light);border-radius:12px;padding:16px;margin-bottom:16px}
+    .oglas-contact h4{font-size:.88rem;font-weight:700;color:var(--green-dark);margin-bottom:10px}
+    .oglas-contact p{font-size:.95rem;font-weight:600;color:var(--gray-800);margin-bottom:4px}
+    .oglas-contact .avail{font-size:.75rem;color:var(--gray-500);margin-top:6px}
+    .oglas-actions{display:flex;flex-direction:column;gap:10px}
+    .oglas-back{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;color:var(--gray-500);margin-bottom:16px;text-decoration:none}
+    .oglas-back:hover{color:var(--green)}
+    .oglas-status-badge{display:inline-flex;align-items:center;gap:4px;font-size:.75rem;font-weight:600;padding:4px 10px;border-radius:20px;margin-bottom:12px}
+    .oglas-status-badge--pending{background:#fffbeb;color:#d97706}
+    .oglas-status-badge--rejected{background:#fef2f2;color:#dc2626}
+    .fullscreen-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;display:none;align-items:center;justify-content:center;cursor:zoom-out}
+    .fullscreen-overlay.open{display:flex}
+    .fullscreen-overlay img{max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px}
+    .fullscreen-close{position:absolute;top:16px;right:20px;color:#fff;font-size:2rem;cursor:pointer;background:none;border:none;line-height:1}
+    @media(max-width:768px){
+      .oglas-grid{grid-template-columns:1fr}
+      .oglas-photos{position:static}
+      .oglas-title{font-size:1.2rem}
+      .oglas-price{font-size:1.4rem}
+      .oglas-attrs{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<div id="header-root"></div>
+
+<div class="oglas-wrap">
+  <a href="javascript:history.back()" class="oglas-back">← Nazad</a>
+  <div id="oglasSkeleton" style="text-align:center;padding:60px;color:var(--gray-400)">
+    <div style="font-size:2rem;margin-bottom:12px">⏳</div>Učitava se oglas...
+  </div>
+  <div id="oglasContent" style="display:none"></div>
+</div>
+
+<!-- Fullscreen slika -->
+<div class="fullscreen-overlay" id="fullscreenOverlay" onclick="closeFullscreen()">
+  <button class="fullscreen-close" onclick="closeFullscreen()">✕</button>
+  <img id="fullscreenImg" src="" alt=""/>
+</div>
+
+<script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/header.js"></script>
+<script src="js/shared.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/vendor/supabase.min.js"></script>
+<script src="js/google-auth.js"></script>
+<div id="google-btn-hidden" style="display:none"></div>
+
+<script>
+var adId = new URLSearchParams(window.location.search).get('id');
+
+if (!adId) {
+  document.getElementById('oglasSkeleton').innerHTML = '<div style="font-size:2rem">❌</div><p>Oglas nije pronađen.</p><a href="index.html" class="btn btn--primary" style="margin-top:12px">Početna</a>';
+} else {
+  SB.getAdById(adId).then(function(ad) {
+    if (!ad) {
+      document.getElementById('oglasSkeleton').innerHTML = '<div style="font-size:2rem">❌</div><p>Oglas ne postoji ili je obrisan.</p><a href="index.html" class="btn btn--primary" style="margin-top:12px">Početna</a>';
+      return;
+    }
+
+    // SEO meta tagovi
+    document.title = ad.title + ' — ProdajKupi';
+    document.getElementById('metaDesc').content = ad.description.slice(0, 150);
+    document.getElementById('ogTitle').content = ad.title;
+    document.getElementById('ogDesc').content = ad.description.slice(0, 150);
+    if (ad.photos && ad.photos[0]) document.getElementById('ogImage').content = ad.photos[0];
+
+    var user     = SESSION.get();
+    var isOwner  = user && user.email === ad.user_email;
+    var canMsg   = user && user.email !== ad.user_email;
+    var initial  = (ad.contact_name || ad.user_name || '?').charAt(0).toUpperCase();
+    var photos   = ad.photos || [];
+    var EUR_RATE = 117.3;
+    var eur      = Math.round((ad.price||0) / EUR_RATE);
+
+    // Photos HTML
+    var photosHtml = photos.length
+      ? '<div class="oglas-main-img-wrap"><img class="oglas-main-img" id="mainImg" src="' + photos[0] + '" onclick="openFullscreen(this.src)" alt="' + escHtml(ad.title) + '"/></div>' +
+        (photos.length > 1
+          ? '<div class="oglas-thumbs">' + photos.map(function(p,i){
+              return '<img src="'+p+'" class="'+(i===0?'active':'')+'" onclick="switchPhoto(\''+p+'\',this)" alt="foto '/+(i+1)+'">';
+            }).join('') + '</div>'
+          : '')
+      : '<div class="oglas-main-emoji">' + (EMOJI[ad.category]||'📦') + '</div>';
+
+    // Atributi
+    var attrs = [];
+    if (ad.condition)   attrs.push({l:'Stanje',       v:ad.condition});
+    if (ad.subcategory) attrs.push({l:'Potkategorija',v:ad.subcategory});
+    if (ad.year)        attrs.push({l:'Godište',      v:ad.year});
+    if (ad.mileage)     attrs.push({l:'Kilometraža',  v:Number(ad.mileage).toLocaleString('sr-RS')+' km'});
+    if (ad.size)        attrs.push({l:'Veličina',     v:ad.size});
+    if (ad.swap && ad.swap!=='Ne') attrs.push({l:'Zamena', v:ad.swap});
+    if (ad.delivery && ad.delivery.length) attrs.push({l:'Preuzimanje', v:ad.delivery.join(', ')});
+    attrs.push({l:'Grad', v:'📍 '+escHtml(ad.city||'')+(ad.municipality?' — '+ad.municipality:'')});
+
+    // Status badge (samo ako nije approved)
+    var statusBadge = '';
+    if (ad.status === 'pending')  statusBadge = '<div class="oglas-status-badge oglas-status-badge--pending">⏳ Čeka odobrenje</div>';
+    if (ad.status === 'rejected') statusBadge = '<div class="oglas-status-badge oglas-status-badge--rejected">❌ Odbijen</div>';
+
+    // Share URL
+    var shareUrl = window.location.origin + '/oglas.html?id=' + ad.id;
+    var shareText = encodeURIComponent(ad.title + ' — ' + Number(ad.price||0).toLocaleString('sr-RS') + ' RSD\n' + shareUrl);
+
+    SB.getReviews(ad.user_email).then(function(reviews) {
+      reviews = reviews || [];
+      var pos = reviews.filter(function(r){return r.type==='positive';}).length;
+      var neg = reviews.filter(function(r){return r.type==='negative';}).length;
+
+      document.getElementById('oglasSkeleton').style.display = 'none';
+      document.getElementById('oglasContent').style.display = 'block';
+      document.getElementById('oglasContent').innerHTML =
+        statusBadge +
+        '<div class="oglas-grid">' +
+          '<div class="oglas-photos">' +
+            photosHtml +
+            '<div class="oglas-share">' +
+              '<button class="share-btn share-btn--wa" onclick="window.open(\'https://wa.me/?text='+shareText+'\',\'_blank\')">📱 WhatsApp</button>' +
+              '<button class="share-btn share-btn--vb" onclick="window.open(\'viber://forward?text='+shareText+'\',\'_blank\')">📲 Viber</button>' +
+              '<button class="share-btn share-btn--copy" onclick="copyLink(\''+shareUrl+'\')">🔗 Kopiraj link</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="oglas-info">' +
+            '<div class="oglas-category">' + escHtml(ad.category) + '</div>' +
+            '<h1 class="oglas-title">' + escHtml(ad.title) + '</h1>' +
+            '<div class="oglas-price">' + Number(ad.price||0).toLocaleString('sr-RS') + ' RSD</div>' +
+            (ad.price ? '<div class="oglas-price-eur">≈ ' + eur.toLocaleString('sr-RS') + ' €</div>' : '') +
+            '<div class="oglas-seller">' +
+              '<div class="oglas-seller__avatar">'+initial+'</div>' +
+              '<div class="oglas-seller__info">' +
+                '<strong>' + escHtml(ad.contact_name||ad.user_name) + '</strong>' +
+                '<span>Objavljeno ' + timeAgo(ad.created_at) + '</span>' +
+              '</div>' +
+              '<a href="ocene.html?user='+encodeURIComponent(ad.user_email)+'" style="display:flex;gap:6px;text-decoration:none">' +
+                '<span style="font-size:.82rem;background:var(--green-light);color:var(--green-dark);padding:3px 8px;border-radius:6px;font-weight:600">👍 '+pos+'</span>' +
+                '<span style="font-size:.82rem;background:#fef2f2;color:#dc2626;padding:3px 8px;border-radius:6px;font-weight:600">👎 '+neg+'</span>' +
+              '</a>' +
+            '</div>' +
+            '<div class="oglas-attrs">' +
+              attrs.map(function(a){ return '<div class="oglas-attr"><label>'+escHtml(a.l)+'</label><span>'+escHtml(String(a.v))+'</span></div>'; }).join('') +
+            '</div>' +
+            '<div class="oglas-desc">' + escHtml(ad.description) + '</div>' +
+            '<div class="oglas-contact">' +
+              '<h4>📞 Kontakt</h4>' +
+              '<p>' + escHtml(ad.phone||'—') + '</p>' +
+              (ad.phone2 ? '<p>' + escHtml(ad.phone2) + '</p>' : '') +
+              (ad.availability && ad.availability.length ? '<div class="avail">🕐 Dostupan: ' + escHtml(ad.availability.join(', ')) + '</div>' : '') +
+            '</div>' +
+            '<div class="oglas-actions">' +
+              (canMsg ? '<a href="poruke.html?adId='+encodeURIComponent(ad.id)+'&adTitle='+encodeURIComponent(ad.title)+'&to='+encodeURIComponent(ad.user_email)+'&toName='+encodeURIComponent(ad.contact_name||ad.user_name)+'" class="btn btn--primary">💬 Pošalji poruku prodavcu</a>' : '') +
+              (canMsg ? '<a href="ocene.html?user='+encodeURIComponent(ad.user_email)+'&adId='+encodeURIComponent(ad.id)+'&adTitle='+encodeURIComponent(ad.title)+'" class="btn btn--outline">✍️ Ostavi ocenu</a>' : '') +
+              (!user ? '<button class="btn btn--primary" onclick="openLoginModal()">🔑 Prijavi se da pošalješ poruku</button>' : '') +
+              (isOwner ? '<a href="uredi-oglas.html?id='+ad.id+'" class="btn btn--outline">✏️ Uredi oglas</a>' : '') +
+              (isOwner ? '<button class="btn btn--danger" onclick="delAndRedirect(\''+ad.id+'\')">🗑️ Obriši oglas</button>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    });
+  }).catch(function() {
+    document.getElementById('oglasSkeleton').innerHTML = '<div style="font-size:2rem">⚠️</div><p>Greška pri učitavanju. Pokušaj ponovo.</p>';
+  });
+}
+
+function switchPhoto(url, el) {
+  document.getElementById('mainImg').src = url;
+  document.querySelectorAll('.oglas-thumbs img').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+}
+
+function openFullscreen(url) {
+  document.getElementById('fullscreenImg').src = url;
+  document.getElementById('fullscreenOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFullscreen() {
+  document.getElementById('fullscreenOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function copyLink(url) {
+  navigator.clipboard.writeText(url).then(function(){
+    showToast('🔗 Link je kopiran!', 'success');
+  }).catch(function(){
+    showToast('Kopiraj ručno: ' + url, 'info');
+  });
+}
+
+function delAndRedirect(id) {
+  if (!confirm('Obrisati oglas?')) return;
+  SB.deleteAd(id).then(function(){ window.location.href = 'profil.html'; });
+}
+
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeFullscreen(); });
+</script>
+</body>
+</html>

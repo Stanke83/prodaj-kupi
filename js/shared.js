@@ -6,9 +6,9 @@ function adCard(ad) {
     ? '<img src="' + photos[0] + '" alt="' + escHtml(ad.title) + '" loading="lazy"/>'
     : (EMOJI[ad.category] || '📦');
   var isFav = LOCAL_FAVS.has(ad.id);
-  return '<div class="listing-card" data-adid="' + ad.id + '" style="cursor:pointer">' +
+  return '<a href="oglas.html?id=' + ad.id + '" class="listing-card" data-adid="' + ad.id + '">' +
     '<div class="listing-card__thumb">' + thumb + '</div>' +
-    '<button class="listing-card__fav ' + (isFav?'active':'') + '" data-favid="' + ad.id + '" title="Sačuvaj">' + (isFav?'♥':'♡') + '</button>' +
+    '<button class="listing-card__fav ' + (isFav?'active':'') + '" data-favid="' + ad.id + '" title="Sačuvaj" onclick="event.preventDefault();event.stopPropagation();toggleFav(\'' + ad.id + '\',this)">' + (isFav?'♥':'♡') + '</button>' +
     '<div class="listing-card__body">' +
       '<span class="listing-card__category">' + escHtml(ad.category) + '</span>' +
       '<div class="listing-card__title">' + escHtml(ad.title) + '</div>' +
@@ -18,7 +18,7 @@ function adCard(ad) {
         '<span>' + timeAgo(ad.created_at) + '</span>' +
       '</div>' +
     '</div>' +
-  '</div>';
+  '</a>';
 }
 
 function toggleFav(id, btn) {

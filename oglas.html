@@ -11,7 +11,11 @@
   <meta property="og:type" content="website"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="css/style.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
+    #adMap{height:220px;border-radius:12px;margin-top:16px;border:1px solid var(--gray-200);z-index:1}
+    .map-label{font-size:.78rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-top:16px;margin-bottom:6px}
+  </style>
     .oglas-wrap{max-width:900px;margin:0 auto;padding:24px 16px}
     .oglas-grid{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
     .oglas-photos{position:sticky;top:76px}
@@ -102,6 +106,7 @@
 <script src="js/google-auth.js"></script>
 <div id="google-btn-hidden" style="display:none"></div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 var adId = new URLSearchParams(window.location.search).get('id');
 
@@ -207,6 +212,8 @@ if (!adId) {
               attrs.map(function(a){ return '<div class="oglas-attr"><label>'+escHtml(a.l)+'</label><span>'+escHtml(String(a.v))+'</span></div>'; }).join('') +
             '</div>' +
             '<div class="oglas-desc">' + escHtml(ad.description) + '</div>' +
+            '<div class="map-label">📍 Lokacija</div>' +
+            '<div id="adMap"></div>' +
             '<div class="oglas-contact">' +
               '<h4>📞 Kontakt</h4>' +
               '<p>' + escHtml(ad.phone||'—') + '</p>' +
@@ -222,13 +229,45 @@ if (!adId) {
             '</div>' +
           '</div>' +
         '</div>';
+      // Inicijalizuj mapu
+      setTimeout(function(){ initMap(ad.city || '', ad.municipality || ''); }, 100);
     });
   }).catch(function() {
     document.getElementById('oglasSkeleton').innerHTML = '<div style="font-size:2rem">⚠️</div><p>Greška pri učitavanju. Pokušaj ponovo.</p>';
   });
 }
 
-var adPhotos = [];
+function initMap(city, municipality) {
+  var mapEl = document.getElementById('adMap');
+  if (!mapEl || typeof L === 'undefined') return;
+
+  var query = [municipality, city, 'Srbija'].filter(Boolean).join(', ');
+
+  fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query) + '&limit=1', {
+    headers: { 'Accept-Language': 'sr', 'User-Agent': 'ProdajKupi/1.0' }
+  }).then(function(r){ return r.json(); }).then(function(data) {
+    if (!data || !data.length) {
+      mapEl.innerHTML = '<div style="height:220px;display:flex;align-items:center;justify-content:center;color:var(--gray-400);background:var(--gray-50);border-radius:12px">📍 ' + escHtml(city) + '</div>';
+      return;
+    }
+    var lat = parseFloat(data[0].lat);
+    var lon = parseFloat(data[0].lon);
+    var map = L.map('adMap', { zoomControl: true, scrollWheelZoom: false }).setView([lat, lon], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+      maxZoom: 19
+    }).addTo(map);
+    var icon = L.divIcon({
+      html: '<div style="background:var(--green);color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 2px 8px rgba(0,0,0,.3)">📍</div>',
+      iconSize: [32,32], iconAnchor: [16,32], className: ''
+    });
+    L.marker([lat, lon], {icon:icon}).addTo(map).bindPopup('<strong>' + escHtml(city) + '</strong>').openPopup();
+  }).catch(function() {
+    mapEl.innerHTML = '<div style="height:220px;display:flex;align-items:center;justify-content:center;color:var(--gray-400);background:var(--gray-50);border-radius:12px">📍 ' + escHtml(city) + '</div>';
+  });
+}
+
+
 var currentPhotoIdx = 0;
 
 function switchPhoto(idx) {

@@ -58,6 +58,9 @@
           </select>
         </div>
         <div class="listings__grid" id="resultsGrid"></div>
+        <div id="loadMoreWrap" style="display:none;justify-content:center;padding:24px 0">
+          <button id="loadMoreBtn" class="btn btn--outline" onclick="loadMore()" style="padding:12px 40px;font-size:.95rem">Učitaj još oglasa</button>
+        </div>
         <div class="empty-state" id="emptyState" style="display:none">
           <div class="empty-state__icon">🔍</div>
           <h3>Nema rezultata</h3>
@@ -83,84 +86,95 @@
 <script src="js/google-auth.js"></script>
 <script>
 var currentPage = 1;
-var debTimer;
+var totalAds = null;
+var isLoadingMore = false;
 
-ALL_CATS.forEach(function(c){
-  [document.getElementById('searchCategory'),document.getElementById('fCat')].forEach(function(s){
-    s.insertAdjacentHTML('beforeend','<option value="'+c+'">'+c+'</option>');
-  });
-});
-ALL_CITIES.forEach(function(c){
-  document.getElementById('fCity').insertAdjacentHTML('beforeend','<option value="'+c+'">'+c+'</option>');
-});
-
-function readParams() {
-  var p = new URLSearchParams(window.location.search);
-  if (p.get('q'))   { document.getElementById('searchInput').value = p.get('q'); }
-  if (p.get('cat')) { document.getElementById('fCat').value = p.get('cat'); document.getElementById('searchCategory').value = p.get('cat'); }
-  if (p.get('city')){ document.getElementById('fCity').value = p.get('city'); }
-}
-
-function getFilters() {
-  return {
-    search:    document.getElementById('searchInput').value.trim(),
-    category:  document.getElementById('fCat').value,
-    city:      document.getElementById('fCity').value,
-    condition: document.getElementById('fCondition').value,
-    minPrice:  document.getElementById('fMinPrice').value || null,
-    maxPrice:  document.getElementById('fMaxPrice').value || null,
-    sort:      document.getElementById('fSort').value,
-    page:      currentPage,
-    perPage:   16,
-  };
-}
-
-function doSearch() { currentPage = 1; renderResults(); }
-function doSearchDebounced() { clearTimeout(debTimer); debTimer = setTimeout(doSearch, 500); }
-function resetFilters() {
-  ['fCat','fCity','fCondition','fSort'].forEach(function(id){ document.getElementById(id).value=''; });
-  ['fMinPrice','fMaxPrice'].forEach(function(id){ document.getElementById(id).value=''; });
-  document.getElementById('searchInput').value='';
-  document.getElementById('searchCategory').value='';
-  currentPage=1; renderResults();
-}
-
-function renderResults() {
-  document.getElementById('resultInfo').textContent = '⏳ Pretraga...';
-  document.getElementById('resultsGrid').innerHTML = '';
-  document.getElementById('emptyState').style.display = 'none';
-  document.getElementById('pagination').innerHTML = '';
-
+function renderResults(append) {
+  if (isLoadingMore) return;
   var filters = getFilters();
+  filters.page = currentPage;
+  filters.perPage = 16;
+
+  if (!append) {
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('resultsGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray-400)">⏳ Učitavanje...</div>';
+    document.getElementById('pagination').innerHTML = '';
+    document.getElementById('loadMoreWrap').style.display = 'none';
+  } else {
+    isLoadingMore = true;
+    var btn = document.getElementById('loadMoreBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Učitavanje...'; }
+  }
+
   SB.getAds(filters).then(function(ads) {
+    isLoadingMore = false;
     ads = ads || [];
-    var total = ads._total;
-    var perPage = filters.perPage || 16;
-    var totalPages = total ? Math.ceil(total / perPage) : null;
+    totalAds = ads._total != null ? ads._total : totalAds;
+    var perPage = 16;
+    var totalPages = totalAds ? Math.ceil(totalAds / perPage) : null;
 
     var q = filters.search ? ' za "'+filters.search+'"' : '';
-    var countStr = total != null ? '<strong>'+total+'</strong>' : '<strong>'+ads.length+(ads.length===perPage?'+':'')+'</strong>';
+    var countStr = totalAds != null ? '<strong>'+totalAds+'</strong>' : '<strong>'+ads.length+(ads.length===perPage?'+':'')+'</strong>';
     document.getElementById('resultInfo').innerHTML = countStr + ' oglasa' + q;
 
-    if (!ads.length) { document.getElementById('emptyState').style.display='block'; return; }
-    document.getElementById('resultsGrid').innerHTML = ads.map(function(ad){ return adCard(ad); }).join('');
+    if (!ads.length && !append) {
+      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('resultsGrid').innerHTML = '';
+      return;
+    }
+
+    var grid = document.getElementById('resultsGrid');
+    var newCards = ads.map(function(ad){ return adCard(ad); }).join('');
+    if (append) {
+      grid.insertAdjacentHTML('beforeend', newCards);
+    } else {
+      grid.innerHTML = newCards;
+    }
+
+    var loadWrap = document.getElementById('loadMoreWrap');
+    var hasMore = totalPages ? currentPage < totalPages : ads.length === perPage;
+    if (hasMore) {
+      loadWrap.style.display = 'flex';
+      var btn2 = document.getElementById('loadMoreBtn');
+      if (btn2) { btn2.disabled = false; btn2.textContent = 'Učitaj još oglasa'; }
+    } else {
+      loadWrap.style.display = 'none';
+    }
 
     var pag = document.getElementById('pagination');
     if (!totalPages || totalPages <= 1) { pag.innerHTML = ''; return; }
     var prevBtn = currentPage > 1 ? '<button class="pagination__btn" onclick="goPage('+(currentPage-1)+')">‹ Prethodna</button>' : '';
     var nextBtn = currentPage < totalPages ? '<button class="pagination__btn" onclick="goPage('+(currentPage+1)+')">Sledeća ›</button>' : '';
     var pages = '';
-    var start = Math.max(1, currentPage - 2);
+    var start2 = Math.max(1, currentPage - 2);
     var end2  = Math.min(totalPages, currentPage + 2);
-    if (start > 1) pages += '<button class="pagination__btn" onclick="goPage(1)">1</button>'+(start>2?'<span style="padding:0 4px">…</span>':'');
-    for (var i = start; i <= end2; i++) {
+    if (start2 > 1) pages += '<button class="pagination__btn" onclick="goPage(1)">1</button>'+(start2>2?'<span style="padding:0 4px">…</span>':'');
+    for (var i = start2; i <= end2; i++) {
       pages += '<button class="pagination__btn'+(i===currentPage?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
     }
     if (end2 < totalPages) pages += (end2<totalPages-1?'<span style="padding:0 4px">…</span>':'')+'<button class="pagination__btn" onclick="goPage('+totalPages+')">'+totalPages+'</button>';
     pag.innerHTML = prevBtn + pages + nextBtn;
-    }).catch(function(e){
+
+  }).catch(function(e) {
+    isLoadingMore = false;
     document.getElementById('resultInfo').textContent = 'Greška: ' + e.message;
   });
+}
+
+function loadMore() {
+  currentPage++;
+  renderResults(true);
+}
+
+function doSearch() { currentPage = 1; totalAds = null; renderResults(); }
+var _searchTimer;
+function doSearchDebounced() { clearTimeout(_searchTimer); _searchTimer = setTimeout(doSearch, 400); }
+function resetFilters() {
+  currentPage = 1; totalAds = null;
+  ['fCat','fCity','fCondition','fSort'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+  ['fMinPrice','fMaxPrice'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('searchInput').value = '';
+  renderResults();
 }
 
 function goPage(p) {

@@ -177,34 +177,57 @@ function loadMyAds() {
 }
 
 function loadFavorites() {
-  var favIds = LOCAL_FAVS.get();
   var list = document.getElementById('favList');
-  if (!favIds.length) {
-    list.innerHTML = '<div class="empty-state" style="padding:40px 0"><div class="empty-state__icon">🔖</div><h3>Nema sačuvanih</h3><a href="pretraga.html" class="btn btn--outline">Pretraži oglase</a></div>';
-    return;
-  }
-  // Dohvati svaki oglas
-  Promise.all(favIds.map(function(id){ return SB.getAdById(id); }))
-    .then(function(ads) {
-      ads = ads.filter(Boolean);
-      if (!ads.length) { list.innerHTML = '<p style="color:var(--gray-400)">Sačuvani oglasi su obrisani.</p>'; return; }
-      list.innerHTML = ads.map(function(ad) {
-        var photos = ad.photos || [];
-        var thumb = photos.length ? '<img src="'+photos[0]+'" alt="foto"/>' : (EMOJI[ad.category]||'📦');
-        return '<div class="my-ad-card">' +
-          '<div class="my-ad-card__thumb">' + thumb + '</div>' +
-          '<div class="my-ad-card__body">' +
-            '<div class="my-ad-card__title">' + escHtml(ad.title) + '</div>' +
-            '<div class="my-ad-card__price">' + Number(ad.price||0).toLocaleString('sr-RS')+' RSD' + '</div>' +
-            '<div class="my-ad-card__meta">📍 ' + escHtml(ad.city||'') + '</div>' +
-          '</div>' +
-          '<div class="my-ad-card__actions">' +
-            '<button class="btn btn--gray btn--sm" onclick="removeFav(\''+ad.id+'\')">✕ Ukloni</button>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    });
+  list.innerHTML = '<div style="color:var(--gray-400);padding:20px 0">⏳ Učitavanje...</div>';
+  var user = SESSION.get();
+
+  // Sinhroniziuj sa bazom pa prikaži
+  var syncPromise = (user && user.email)
+    ? LOCAL_FAVS.syncFromDB(user.email)
+    : Promise.resolve(LOCAL_FAVS.get());
+
+  syncPromise.then(function(favIds) {
+    favIds = favIds || [];
+    if (!favIds.length) {
+      list.innerHTML = '<div class="empty-state" style="padding:40px 0"><div class="empty-state__icon">🔖</div><h3>Nema sačuvanih oglasa</h3><a href="pretraga.html" class="btn btn--outline">Pretraži oglase</a></div>';
+      return;
+    }
+    Promise.all(favIds.map(function(id){ return SB.getAdById(id).catch(function(){return null;}); }))
+      .then(function(ads) {
+        ads = ads.filter(Boolean);
+        if (!ads.length) {
+          list.innerHTML = '<p style="color:var(--gray-400)">Sačuvani oglasi su obrisani.</p>';
+          return;
+        }
+        list.innerHTML = ads.map(function(ad) {
+          var photos = ad.photos || [];
+          var thumb = photos.length ? '<img src="'+photos[0]+'" alt="foto"/>' : (EMOJI[ad.category]||'📦');
+          var eur = Math.round((ad.price||0) / 117.3);
+          return '<div class="my-ad-card">' +
+            '<a href="oglas.html?id='+ad.id+'" class="my-ad-card__thumb" style="display:block;text-decoration:none">' + thumb + '</a>' +
+            '<div class="my-ad-card__body">' +
+              '<div class="my-ad-card__title"><a href="oglas.html?id='+ad.id+'" style="text-decoration:none;color:inherit">' + escHtml(ad.title) + '</a></div>' +
+              '<div class="my-ad-card__price">' + Number(ad.price||0).toLocaleString('sr-RS') + ' RSD <small style="color:var(--gray-400)">≈ '+eur+' €</small></div>' +
+              '<div class="my-ad-card__meta">📍 ' + escHtml(ad.city||'') + ' · ' + escHtml(ad.category) + '</div>' +
+            '</div>' +
+            '<div class="my-ad-card__actions">' +
+              '<a href="oglas.html?id='+ad.id+'" class="btn btn--outline btn--sm">Pogledaj</a>' +
+              '<button class="btn btn--gray btn--sm" onclick="removeFav(\''+ad.id+'\')">✕</button>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      });
+  });
 }
+
+function removeFav(id) {
+  LOCAL_FAVS.toggle(id); // ukloni lokalno
+  var user = SESSION.get();
+  if (user && user.email) SB.removeFavorite(user.email, id).catch(function(){});
+  loadFavorites();
+  showToast('Uklonjeno iz sačuvanih', 'info');
+}
+
 
 function deleteMyAd(id) {
   if (!confirm('Obrisati oglas?')) return;

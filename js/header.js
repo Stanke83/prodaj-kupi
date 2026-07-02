@@ -22,6 +22,11 @@ function renderHeader() {
     if (typeof renderNotifBell === 'function') renderNotifBell(user.email);
     // Proveri oglase koji ističu
     checkExpiringAds(user);
+    // Sinhroniziuj favorite iz baze (jednom po sesiji)
+    if (typeof LOCAL_FAVS !== 'undefined' && LOCAL_FAVS.syncFromDB && !sessionStorage.getItem('pk_favs_synced')) {
+      sessionStorage.setItem('pk_favs_synced', '1');
+      LOCAL_FAVS.syncFromDB(user.email);
+    }
   } else {
     el.innerHTML =
       '<button class="btn btn--outline btn--sm" onclick="openLoginModal()">Prijavi se</button>' +
@@ -197,6 +202,10 @@ function handleLogin() {
   SB.login(email, pass).then(function(user) {
     closeAllModals(); renderHeader();
     showToast('Dobrodošli, ' + user.name.split(' ')[0] + '!');
+    // Sinhroniziuj favorite iz baze
+    if (typeof LOCAL_FAVS !== 'undefined' && LOCAL_FAVS.syncFromDB) {
+      LOCAL_FAVS.syncFromDB(user.email);
+    }
     var next = new URLSearchParams(window.location.search).get('next');
     if (next) window.location.href = next;
     else if (typeof renderHome === 'function') renderHome();

@@ -26,6 +26,15 @@ function toggleFav(id, btn) {
   btn.classList.toggle('active', isFav);
   btn.textContent = isFav ? '♥' : '♡';
   showToast(isFav ? 'Dodato u sačuvane ♥' : 'Uklonjeno iz sačuvanih', isFav ? 'success' : 'info');
+  // Sinhroniziuj sa bazom za prijavljene korisnike
+  var user = SESSION.get();
+  if (user && user.email) {
+    if (isFav) {
+      SB.addFavorite(user.email, id).catch(function(){});
+    } else {
+      SB.removeFavorite(user.email, id).catch(function(){});
+    }
+  }
 }
 
 function openDetail(id) {

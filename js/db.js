@@ -86,6 +86,19 @@ var LOCAL_FAVS = {
     if (idx > -1) favs.splice(idx,1); else favs.push(id);
     this.set(favs);
     return idx === -1;
+  },
+  // Učitaj iz baze i spoji sa lokalnim
+  syncFromDB: function(userEmail) {
+    return SB.getFavorites(userEmail).then(function(dbIds) {
+      var local = LOCAL_FAVS.get();
+      // Spoji lokalne i DB favoriti
+      var merged = Array.from(new Set(local.concat(dbIds)));
+      LOCAL_FAVS.set(merged);
+      // Upload lokalnih koji nisu u DB
+      var toUpload = local.filter(function(id){ return dbIds.indexOf(id) === -1; });
+      toUpload.forEach(function(id){ SB.addFavorite(userEmail, id).catch(function(){}); });
+      return merged;
+    }).catch(function(){ return LOCAL_FAVS.get(); });
   }
 };
 
